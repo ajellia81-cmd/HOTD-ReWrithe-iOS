@@ -50,10 +50,11 @@ the limit; slow frames with a small work: the display side).
 **The coverage copy (the frame drops' cause):** the FPS counter's split (`util/frame_prof.h`) showed a frame's CPU
 time almost all in the 3D view, and there in render5's coverage copy (`Renderer::draw`: CopyTexSubImage2D of the
 whole 2868 x 1320 picture in the middle of the frame for the widescreen side strips): 21-23 ms of 26-29 ms, the GPU
-~1 ms. Skipping it (the visfix order) made a window at the picture's edge flicker. Now iOS draws every frame into a
-texture of its own (`gl_backend`'s `iosPresent`: "framebuffer 0" is that texture's, blitted into SDL's view at the
-present), so the copy reads a texture of the same format; should it still cost over 6 ms a frame (60 frames'
-average), the renderer falls back to the visfix order and logs it. `HOTD_IOS_DIRECT=1`: straight into the view's.
+~1 ms; out of a texture of ours still ~6 ms. Skipping it (the visfix order) made a window at the picture's edge
+flicker. iOS now draws every frame into a texture of its own (`gl_backend`'s `iosPresent`: "framebuffer 0" is that
+texture's, blitted into SDL's view at the present) and writes the zone's coverage as a second colour output while the
+zone draws (the fragment shader's `oCover`, `coverTex_` attached as colour 1, detached before the pieces read it):
+no copy at all. Into SDL's own view (`HOTD_IOS_DIRECT=1`) the copy as before.
 
 **Frame rate:** 60 fps by default on iOS (Options > Video > Frame Rate; Display Refresh for 120 where LiveContainer
 lets frames faster than 60 through). The first device test at 120 paced unevenly.

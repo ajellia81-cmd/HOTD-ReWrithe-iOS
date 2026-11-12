@@ -713,6 +713,8 @@ void texTag(const char* name)
 }
 
 #if defined(HOTD_IOS)
+unsigned iosViewFbo() { return gIosViewFbo; }
+
 // ios: the frame's target (gIosSceneFbo above) made or resized to the drawable's size, then the finished frame blitted
 // into the view's framebuffer; "0" stays the scene's afterwards
 void iosPresent(int w, int h)

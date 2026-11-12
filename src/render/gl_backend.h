@@ -37,6 +37,7 @@ bool isES();                   // the context is OpenGL ES (ANGLE)
 #if defined(HOTD_IOS)
 // ios (docs/ios.md): before every present: the frame (drawn into a texture of ours) blitted into SDL's UIKit view
 void iosPresent(int w, int h);
+unsigned iosViewFbo();   // SDL's UIKit view's framebuffer (a drawable: nothing of ours is attached to it)
 #endif
 std::string backendInUse();    // "OpenGL" / "DirectX 11 (ANGLE)" / "DirectX 9 (ANGLE)" (empty before a context)
 bool angleAvailable();         // libGLESv2.dll / libEGL.dll found beside the game

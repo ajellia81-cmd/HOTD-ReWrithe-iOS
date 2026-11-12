@@ -1,4 +1,5 @@
 #include "util/frame_prof.h"
+#include "render/gl_backend.h"
 #include "render/renderer.h"
 
 #include "assets/mods.h"
@@ -1052,6 +1053,20 @@ bool Renderer::init(std::string& err)
     };
     auto link = [&](const char* extra, std::string& e) -> gl::GLuint {
         std::string vsSrc = withDefines(kVertexShader), fsSrc = withDefines(kFragmentShader);
+#if defined(HOTD_IOS)
+        // ios (docs/ios.md "The coverage copy"): render5's coverage written as a second colour output (oCover, the
+        // fragment's colour again) while the zone draws, instead of a copy of the picture afterwards: main wrapped so
+        // every exit writes it; with one draw buffer (all other times) the second output goes nowhere
+        {
+            const std::string out = "out vec4 oColor;", main = "void main() {";
+            const size_t o = fsSrc.find(out), m = fsSrc.find(main);
+            if (o != std::string::npos && m != std::string::npos) {
+                fsSrc.replace(m, main.size(), "void hotd_main() {");
+                fsSrc.replace(o, out.size(), "layout(location = 0) out vec4 oColor;\nlayout(location = 1) out vec4 oCover;");
+                fsSrc += "\nvoid main() { hotd_main(); oCover = oColor; }\n";
+            }
+        }
+#endif
         if (extra) {
             vsSrc.insert(vsSrc.find('\n') + 1, extra);
             fsSrc.insert(fsSrc.find('\n') + 1, extra);
@@ -1794,10 +1809,47 @@ void Renderer::draw(const std::vector<DrawItem>& items, const Camera& cam, int w
         gl::ClearColor(opt.clear[0], opt.clear[1], opt.clear[2], 1.0f);
     };
     gl::Uniform1i(uSideCover_, 0);
+#if defined(HOTD_IOS)
+    // ios (docs/ios.md "The coverage copy"): the zone's coverage straight into coverTex_ as the framebuffer's second
+    // colour attachment while the zone draws (the shader's oCover), detached before the pieces read it: no copy of the
+    // picture (from SDL's drawable 21-23 ms a frame, from a texture still ~6). Into a framebuffer of ours only (not
+    // SDL's view); elsewhere the copy below as before
+    gl::GLint drawFbo = 0;
+    gl::GetIntegerv(0x8CA6 /* DRAW_FRAMEBUFFER_BINDING */, &drawFbo);
+    const bool coverMrt = cover && drawFbo != 0 && unsigned(drawFbo) != gl::iosViewFbo();
+    constexpr gl::GLenum kColor1 = 0x8CE1;
+    if (coverMrt) {
+        gl::ActiveTexture(gl::TEXTURE0 + 9);
+        if (coverW_ != width || coverH_ != height) {
+            gl::BindTexture(gl::TEXTURE_2D, coverTex_);
+            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA8, width, height, 0, gl::RGBA, gl::UNSIGNED_BYTE, nullptr);
+            coverW_ = width, coverH_ = height;
+        }
+        gl::BindTexture(gl::TEXTURE_2D, spareFloat_);   // (not sampled while it is drawn into)
+        gl::ActiveTexture(gl::TEXTURE0 + gl::GLenum(activeUnit));
+        gl::FramebufferTexture2D(gl::FRAMEBUFFER, kColor1, gl::TEXTURE_2D, coverTex_, 0);
+        const gl::GLenum both[2] = {gl::COLOR_ATTACHMENT0, kColor1};
+        gl::DrawBuffers(2, both);
+    }
+#endif
     if (cover) clearAlpha(0.0f);
     const int phases[2] = {cover ? 1 : 0, cover ? 0 : 1};
     for (int pi = hasSide ? 0 : 1; pi < 2; ++pi) {
     const int phase = phases[pi];
+#if defined(HOTD_IOS)
+    if (coverMrt && phase == 0) {   // the zone is drawn, its coverage already in coverTex_: detached, then read
+        const hotd::prof::Scope ps(hotd::prof::kCover);
+        const gl::GLenum one[1] = {gl::COLOR_ATTACHMENT0};
+        gl::DrawBuffers(1, one);
+        gl::FramebufferTexture2D(gl::FRAMEBUFFER, kColor1, gl::TEXTURE_2D, 0, 0);
+        gl::ActiveTexture(gl::TEXTURE0 + 9);
+        gl::BindTexture(gl::TEXTURE_2D, coverTex_);
+        gl::ActiveTexture(gl::TEXTURE0 + gl::GLenum(activeUnit));
+        gl::Uniform1i(uSideCover_, 1);
+        gl::DepthMask(gl::TRUE_);
+        gl::Clear(gl::DEPTH_BUFFER_BIT);
+    } else
+#endif
     if (cover && phase == 0) {   // the zone is drawn: its coverage for the pieces
         const hotd::prof::Scope ps(hotd::prof::kCover);   // (ios: the FPS counter's split)
         if (coverW_ != width || coverH_ != height) {
