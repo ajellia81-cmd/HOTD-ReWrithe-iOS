@@ -47,6 +47,11 @@ constexpr float kTouchBand = 0.0015f;
 // the players' colours (the light bar): P1 red, P2 blue, P3 green, P4 yellow
 constexpr uint8_t kColour[4][3] = {{255, 0, 0}, {0, 64, 255}, {0, 255, 0}, {255, 200, 0}};
 constexpr float kPrecise = 0.35f;   // left stick click held: the aim's speed
+#if defined(HOTD_IOS)
+// ios (the player's controls, 2026-11-12): left stick = the crosshair, R2 shoot, L2 reload, South (A) held = the
+// crosshair faster (not a trigger)
+constexpr float kIosBoost = 2.5f;
+#endif
 constexpr uint64_t kTapNs = 200000000ull;   // a tap: North (recentre) / the touchpad (its click action) let go within 0.2 s
 // padfix (user 2026-10-30: "pressing the left stick should centre the crosshair"): a click of the left stick (let go
 // within 0.15 s) = the middle; held longer it stays the precise aim
@@ -98,6 +103,10 @@ void band(float raw, float& f, float b)
 void Pads::configure(const LaunchConfig& c)
 {
     want[0] = c.p1Input == 2;
+#if defined(HOTD_IOS)
+    touchAndPad_ = c.p1Input == 0;   // (ios: the touch's player 1 takes a connected pad too)
+    want[0] = want[0] || touchAndPad_;
+#endif
     want[1] = c.p2Input == 2;
     want[2] = c.players >= 3 && c.p3Input == 2;   // the 4P mode (docs/coop4.md): players 3 / 4
     want[3] = c.players >= 3 && c.p4Input == 2;
@@ -172,7 +181,7 @@ void Pads::refresh()
         }
         SDL_Log("pads: %s (%u) disconnected%s", d.name.c_str(), unsigned(d.id),
                 d.player >= 0 ? (" (player " + std::to_string(d.player + 1) + "'s)").c_str() : "");
-        if (d.player >= 0) {
+        if (d.player >= 0 && !(touchAndPad_ && d.player == 0)) {   // (ios: the touch's player: no pause)
             lost_[d.player] = true;
             lostShown_[d.player] = false;
         }
@@ -226,6 +235,10 @@ int Pads::styleOf(const Pad& d) const
     if (d.player < 0)
         return 1;
     int s = prof[d.player].style;
+#if defined(HOTD_IOS)
+    if (s <= 0 || s > kPadStyles)
+        s = 1;   // (ios: Auto = Classic, the left stick aims, whatever gyro the pad has)
+#endif
     if (s <= 0 || s > kPadStyles)
         s = d.gyro && gyroType(d.type) ? 3 : 1;
     if ((s == 2 || s == 3) && !d.gyro)
@@ -256,11 +269,19 @@ unsigned Pads::shootMask(const Pad& d) const
 {
     const PadStyle& st = styleSet(d);
     static const unsigned kChosen[6] = {kBR2, kBR2, kBL2, kBR1, kBL1, kBSouth};
+#if defined(HOTD_IOS)
+    return kChosen[std::clamp(st.shoot, 0, 5)] | kBR1;   // (ios: South is the crosshair's speed, aim below)
+#else
     return kChosen[std::clamp(st.shoot, 0, 5)] | kBR1 | kBSouth;
+#endif
 }
 
 void Pads::press(Pad& d, unsigned b)
 {
+#if defined(HOTD_IOS)
+    if (b == kBSouth && !(shootMask(d) & b))
+        return;   // (ios: South held = faster aim, no shot, no reload)
+#endif
     if (shootMask(d) & b) d.eTrigger = true;
     else if (kBAll & b) d.eReload = true;
 }
@@ -1021,7 +1042,12 @@ void Pads::aim(GunState guns[], int lw, int lh, float dt)
             continue;
         const int s = styleOf(d), t = touchOf(d);
         const PadStyle& st = styleSet(d);
+#if defined(HOTD_IOS)
+        const float slow = (d.precise ? kPrecise : 1.0f) *
+                           (d.g && SDL_GetGamepadButton(d.g, SDL_GAMEPAD_BUTTON_SOUTH) ? kIosBoost : 1.0f);
+#else
         const float slow = d.precise ? kPrecise : 1.0f;
+#endif
         float dx = 0, dy = 0;
         if (s == 1 || s == 3) {   // the sticks: Classic = one aims, the other fine-adjusts; Motion + stick = the fine one
             const float dead = kDead[std::clamp(st.dead, 0, 6)], curve = kCurve[std::clamp(st.curve, 0, 3)];

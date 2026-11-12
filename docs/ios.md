@@ -33,11 +33,14 @@ Installed on its own (Xcode, AltStore, SideStore), the folder is Files -> On My 
 | **RELOAD** (bottom right, in play) | reload (as a shot off the screen) |
 | a second finger anywhere (in play) | reload too |
 | **II** (top left, in play) / **BACK** (in the menus) | Esc: the pause menu / back |
-| a game controller | as on a PC (stick aim, trigger, the gyro if the pad has one); **the touch buttons hide** while one is connected and come back when it goes away |
+| a game controller | **left stick** moves the crosshair, **R2 / RT** shoots, **L2 / LT** reloads, **A (South) held** = the crosshair 2.5x faster; Start pauses. It works as soon as it connects (player 1 keeps the touch too, nothing to set); **the touch buttons hide** while one is connected and come back when it goes away (no pause). The gyro is not used unless a motion style is chosen in the controller options |
 | an iPad's mouse / keyboard | as on a PC |
 
 The buttons sit inside the screen's safe area (clear of the Dynamic Island and the home indicator). Options ->
 Gameplay -> **Auto Reload** reloads an empty gun by itself, if you prefer no button.
+
+**Frame rate:** 60 fps by default on iOS (Options > Video > Frame Rate; Display Refresh for 120 where LiveContainer
+lets frames faster than 60 through). The first device test at 120 paced unevenly.
 
 ## What is different on iOS
 

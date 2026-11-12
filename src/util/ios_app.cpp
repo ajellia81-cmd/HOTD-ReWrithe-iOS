@@ -15,7 +15,6 @@
 #include <filesystem>
 #include <fstream>
 #include <pthread.h>
-#include <set>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -125,7 +124,6 @@ std::string unpackData()
 SDL_Window* gWindow = nullptr;
 std::atomic<bool> gBackground{false}, gTerminating{false};
 bool gInGame = false;
-std::set<SDL_FingerID> gFingers;   // the fingers down now (the first one is SDL's touch mouse)
 bool gSwallow = false;             // the touch mouse's press landed on a button: its motion / release are the button's
 bool gInjecting = false;           // our own events going in (the filter lets them through)
 float gAimX = 0, gAimY = 0;        // the touch mouse's last place in play (window points)
@@ -193,9 +191,12 @@ bool SDLCALL appFilter(void*, SDL_Event* e)
         gTerminating = true;
         return true;
     case SDL_EVENT_FINGER_DOWN: {
-        const bool first = gFingers.empty();
-        gFingers.insert(e->tfinger.fingerID);
-        if (first) return true;   // (SDL's touch mouse: its button press below is the one tested)
+        // the fingers on the screen now, from SDL's own touch state (the new one already in it): this one alone =
+        // SDL's touch mouse (the gun: its button press below is the one tested); more = a second finger. (A count of
+        // our own could miss a lift and stay up: every tap a reload)
+        int down = 0;
+        if (SDL_Finger** f = SDL_GetTouchFingers(e->tfinger.touchID, &down)) SDL_free(f);
+        if (down <= 1) return true;
         int w = 0, h = 0;
         SDL_GetWindowSize(gWindow, &w, &h);
         const Zone z = hit(e->tfinger.x * float(w), e->tfinger.y * float(h));
@@ -203,10 +204,6 @@ bool SDLCALL appFilter(void*, SDL_Event* e)
         else if (gInGame) press(kReload);   // a second finger anywhere: reload
         return true;
     }
-    case SDL_EVENT_FINGER_UP:
-    case SDL_EVENT_FINGER_CANCELED:
-        gFingers.erase(e->tfinger.fingerID);
-        return true;
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
         if (e->button.which != SDL_TOUCH_MOUSEID) return true;
         if (const Zone z = hit(e->button.x, e->button.y); z != kNone) {

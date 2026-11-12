@@ -402,7 +402,16 @@ struct LaunchConfig {
     // off); vsync: wait for the display's refresh (frameRate -1 overrides it); smooth: the 3D picture blended between
     // the last two game frames (render interpolation; game state untouched). launcher.ini framerate= display | unlimited
     // | N, vsync=, smooth=; --frame-rate, --vsync, --smooth
+#if defined(HOTD_IOS)
+    // ios (docs/ios.md, the first device test): 60 by default: the display says 120 Hz, but under LiveContainer the
+    // host app decides whether frames faster than 60 reach the screen; a 120 cap there paced unevenly (every menu frame
+    // "late"). Options > Video > Frame Rate: Display Refresh for 120 where it works. iosRate: the 60 once applied
+    // (launcher.ini iosrate=1), so a choice made afterwards stays
+    int frameRate = 60;
+    bool iosRate = false;
+#else
     int frameRate = 0;
+#endif
     bool vsync = true;
     // angle (render/gl_backend.h): Video > Renderer: 0 Auto (OpenGL 3.3, else DirectX through ANGLE), 1 OpenGL, 2 DirectX
     // (ANGLE). launcher.ini renderer= auto | gl | angle, --renderer; applied at the next start

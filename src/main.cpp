@@ -16332,9 +16332,16 @@ int main(int argc, char* argv[])
                      e.tfinger.touchID != SDL_PEN_TOUCHID && e.tfinger.touchID != SDL_MOUSE_TOUCHID) {
                 // edgereload: a touch screen has no off-screen to point at: a second finger put down while one is on
                 // the screen = the touch's player reloads (the first finger is the gun: SDL's touch mouse events)
+#if defined(HOTD_IOS)
+                // (ios: util/ios_app's event filter counts the fingers instead, from SDL's own touch state as each
+                // event happens: this count, kept from this loop's events alone, missed the lifts that came while
+                // another loop read the events and stayed up, so every tap reloaded: the first device test)
+                (void)fingersDown;
+#else
                 fingersDown = std::max(0, fingersDown + (e.type == SDL_EVENT_FINGER_DOWN ? 1 : -1));
                 if (e.type == SDL_EVENT_FINGER_DOWN && fingersDown >= 2 && !paused)
                     guns[playerOf(SDL_TOUCH_MOUSEID)].reload = true;
+#endif
             } else if (e.type == SDL_EVENT_MOUSE_MOTION) {
                 const SDL_MouseID id = e.motion.which;
                 if (paused) {

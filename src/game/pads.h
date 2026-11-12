@@ -231,6 +231,9 @@ private:
     std::vector<Pad> pads_;
     bool started_ = false;
     bool lost_[kInputPlayers] = {};
+    // ios (docs/ios.md): player 1 on the touch screen (Input "Mouse") takes a pad as soon as one is connected, the touch
+    // still working beside it; that pad going away is no lost pad (no pause: the touch is back)
+    bool touchAndPad_ = false;
     bool lostShown_[kInputPlayers] = {};   // the pause opened for it already
     bool recentre_[kInputPlayers] = {};    // the gyro's off-screen reload: recentre after the shot
     int lives_[kInputPlayers] = {}, score_[kInputPlayers] = {};   // the rumble: the lives / score / reloads seen last
