@@ -51,6 +51,9 @@ constexpr float kPrecise = 0.35f;   // left stick click held: the aim's speed
 // ios (the player's controls, 2026-11-12): left stick = the crosshair, R2 shoot, L2 reload, South (A) held = the
 // crosshair faster (not a trigger)
 constexpr float kIosBoost = 2.5f;
+// the aiming stick's speed on the phone: 60 % of the PC's (the player, 2026-11-12: "slow the cursor down"; the screen
+// is small, the PC's 2.4 screen heights a second at full tilt overshot). Options' Stick Sensitivity still scales it
+constexpr float kIosStick = 0.6f;
 #endif
 constexpr uint64_t kTapNs = 200000000ull;   // a tap: North (recentre) / the touchpad (its click action) let go within 0.2 s
 // padfix (user 2026-10-30: "pressing the left stick should centre the crosshair"): a click of the left stick (let go
@@ -1066,7 +1069,11 @@ void Pads::aim(GunState guns[], int lw, int lh, float dt)
             stickCurve(axis(d.g, fxA), axis(d.g, fyA), dead, curve, fx, fy);
             // pixels a second at full tilt (sens36, GitHub #36): the aiming stick's own Stick Sensitivity, the fine
             // stick's own Fine Stick Sensitivity (Classic's other stick, Motion + stick's), nothing shared on top
+#if defined(HOTD_IOS)
+            const float speed = float(lh) * kStickTop * sensOf(st.stickSens) * kIosStick, fine = float(lh) * kFineTop * sensOf(st.fineSens);
+#else
             const float speed = float(lh) * kStickTop * sensOf(st.stickSens), fine = float(lh) * kFineTop * sensOf(st.fineSens);
+#endif
             float sx = (vx * speed + fx * fine) * dt * slow, sy = (vy * speed + fy * fine) * dt * slow;
             if (s == 1 && (st.invert & 1)) sx = -sx;   // (Motion + stick: the invert is the gyro's)
             if (s == 1 && (st.invert & 2)) sy = -sy;

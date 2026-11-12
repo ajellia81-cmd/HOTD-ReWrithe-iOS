@@ -147,6 +147,7 @@ namespace hotd { namespace mobile = hotd::ios; }   // (the files page: the app's
 // (and the frame limiter's sleeps counted apart from the frame's work: the FPS counter, util/ios_app.cpp)
 #define SDL_DelayPrecise(ns) hotd::ios::delayPrecise(ns)
 #endif
+#include "util/frame_prof.h"   // (ios: the FPS counter's split of a frame; empty elsewhere)
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -17208,7 +17209,10 @@ int main(int argc, char* argv[])
             }
             if (!gNet)   // Boss Mode's clock: the tick's real time (Sonic Mode: its share); online fixed at the start
                 rt.boss.tickMs = 1000.0 / gameTickHz(cfg.gameSpeed) * double(sonicCost ? sonicCost : 42) / 42.0;
-            rt.frame();
+            {
+                const hotd::prof::Scope ps(hotd::prof::kTicks);   // (ios: the FPS counter's split)
+                rt.frame();
+            }
             if (gNet)
                 gNet->after(rt);
             else
@@ -17763,13 +17767,22 @@ int main(int argc, char* argv[])
             };
             vrFrame(rt, *view, hud, cfg.aspect, 0, ww, wh, blendFrom, alpha, vrHud);
         } else {
-        view->opt.clearColor = !hud.drawUnder(rt, ww, wh, view->opt.clear);
-        view->draw(rt, ww, wh, blendFrom, alpha);   // rate: the 3D picture blended; the HUD / sights below are not
+        {
+            const hotd::prof::Scope ps(hotd::prof::kUnder);
+            view->opt.clearColor = !hud.drawUnder(rt, ww, wh, view->opt.clear);
+        }
+        {
+            const hotd::prof::Scope ps(hotd::prof::kView);
+            view->draw(rt, ww, wh, blendFrom, alpha);   // rate: the 3D picture blended; the HUD / sights below are not
+        }
         pillarbox(ww, wh);
         hud.pauseSelection = paused && !settingsCapture && !gPhoto.on ? pause.selection() : -1;
         hud.pauseLines = pauseLinesOf(pause), hud.pauseGrey = pauseGreyOf(pause);   // (#5; photomode: grey)
         hud.deferSights = crtCrisp;
+        {
+        const hotd::prof::Scope ps(hotd::prof::kHud);
         hud.draw(rt, ww, wh, aimSrc, (debugLines && !trailerNow && !photoClean) || (gScene.active() && !sceneClean), gScene.active() && !sceneClean ? gScene.lines(rt) : hudLines(rt, paused));
+        }
         hud.deferSights = false;
         }
         if (crtOn) {   // crt: through the filter to the window; the crisp sights and the messages below over it

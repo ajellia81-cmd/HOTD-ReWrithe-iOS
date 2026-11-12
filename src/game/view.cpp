@@ -15,6 +15,8 @@
 #include <set>
 #include <thread>
 
+#include "util/frame_prof.h"   // (ios: the FPS counter's split of a frame)
+
 namespace hotd::game {
 
 namespace {
@@ -1798,8 +1800,11 @@ void GameView::draw(const Runtime& rt, int width, int height, const FrameSnapsho
                 v[i] = rel.rot[i * 3] * c[0] + rel.rot[i * 3 + 1] * c[1] + rel.rot[i * 3 + 2] * c[2] + rel.pos[i];
             moved.push_back(v);
         }
-        source_->rebuildSkin(skinStage->stage, sk->second, moved, m->second);
-        renderer.updateModel(*skinStage, m->second);
+        {
+            const prof::Scope ps(prof::kSkins);   // (ios: the FPS counter's split)
+            source_->rebuildSkin(skinStage->stage, sk->second, moved, m->second);
+            renderer.updateModel(*skinStage, m->second);
+        }
         const M34& w = b;   // world space already
         Placement p;
         p.id = p.modelKey = m->first;

@@ -4,6 +4,7 @@
 #include "hotd_version.h"
 #include "render/gl.h"
 #include "render/overlay.h"
+#include "util/frame_prof.h"
 
 #include <SDL3/SDL.h>
 
@@ -18,6 +19,10 @@
 #include <sstream>
 #include <string>
 #include <vector>
+
+namespace hotd::prof {
+double gMs[kSlots] = {};   // (util/frame_prof.h)
+}
 
 namespace hotd::ios {
 
@@ -135,10 +140,13 @@ Uint64 gFlashReload = 0, gFlashEsc = 0;
 // the rest until the frame's commands are sent (the game's logic, building the picture, the driver: a GPU sync in a
 // call shows here too), gpu = every 30th frame a glFinish's wait (how far the GPU is behind once the commands are in),
 // wait = the display link's tick; the interval: present to present. Slow: over 1.5 beats of the display link
+double gFrameProf[prof::kSlots] = {};   // the last frame's parts (prof::gMs, then zeroed)
+
 struct FrameStats {
     Uint64 lastEnd = 0, windowStart = 0, sleepNs = 0;
     int frames = 0, slow = 0, gpuSamples = 0;
     double cpuSum = 0, cpuMax = 0, sleepSum = 0, waitSum = 0, gpuSum = 0, gpuMax = 0, worst = 0;
+    double prof[prof::kSlots] = {};   // the frame's CPU by part (util/frame_prof.h), summed
     void work(Uint64 end, Uint64 afterWait, double gpuMs)
     {
         if (!lastEnd) { sleepNs = 0; return; }
@@ -150,6 +158,7 @@ struct FrameStats {
     }
     bool presented(Uint64 now, const char* what)   // true: a window's numbers ready (fps etc. below)
     {
+        for (int k = 0; k < prof::kSlots; ++k) prof[k] += gFrameProf[k];
         if (lastEnd) {
             const double iv = double(now - lastEnd) * 1e-6;
             worst = std::max(worst, iv);
@@ -165,6 +174,17 @@ struct FrameStats {
     void reset(Uint64 now) { *this = FrameStats{}; lastEnd = windowStart = now; }
 };
 FrameStats gStats, gShown;   // the 10 s log; the counter's half second
+std::string profText(const FrameStats& f)   // the parts' ms a frame
+{
+    static const char* const kName[prof::kSlots] = {"tick", "2d", "view", "skin", "hud", "esbuf"};
+    std::string t;
+    char b[32];
+    for (int k = 0; k < prof::kSlots; ++k) {
+        std::snprintf(b, sizeof b, "%s%s %.1f", t.empty() ? "" : "  ", kName[k], f.prof[k] / std::max(1, f.frames));
+        t += b;
+    }
+    return t;
+}
 std::vector<std::string> gFpsLines;
 bool gFpsChanged = false;
 
@@ -559,6 +579,7 @@ bool beforePresent(SDL_Window* window)
 void afterPresent()
 {
     const Uint64 now = SDL_GetTicksNS();
+    for (int k = 0; k < prof::kSlots; ++k) gFrameProf[k] = prof::gMs[k], prof::gMs[k] = 0;
     if (gStats.presented(now, "log")) {
         const FrameStats& f = gStats;
         SDL_Log("ios: frames: %d in %.1f s (%.1f fps; the display link %.0f Hz); slow %d (worst %.1f ms); a frame: cpu avg "
@@ -566,6 +587,7 @@ void afterPresent()
                 f.frames, f.secs(now), double(f.frames) / f.secs(now), displayLinkHz(), f.slow, f.worst, f.cpuSum / f.frames,
                 f.cpuMax, f.gpuSamples ? f.gpuSum / f.gpuSamples : 0.0, f.gpuMax, f.gpuSamples, f.sleepSum / f.frames,
                 f.waitSum / f.frames);
+        SDL_Log("ios: a frame's CPU by part (ms): %s", profText(f).c_str());
         gStats.reset(now);
     }
     if (gShown.presented(now, nullptr)) {
@@ -575,7 +597,7 @@ void afterPresent()
         std::snprintf(a, sizeof a, "FPS %.1f  (%.0f Hz)", double(f.frames) / f.secs(now), displayLinkHz());
         std::snprintf(b, sizeof b, "frame %.1f ms  worst %.0f", f.secs(now) * 1000.0 / f.frames, f.worst);
         std::snprintf(c, sizeof c, "cpu %.1f  gpu %s  sleep %.1f", f.cpuSum / f.frames, g, f.sleepSum / f.frames);
-        gFpsLines = {a, b, c};
+        gFpsLines = {a, b, c, profText(f)};
         gFpsChanged = true;
         gShown.reset(now);
     }

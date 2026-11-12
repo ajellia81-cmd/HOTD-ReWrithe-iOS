@@ -1,4 +1,5 @@
 // The renderer's backends: desktop OpenGL 3.3 core or OpenGL ES 3.0 through ANGLE (render/gl_backend.h)
+#include "util/frame_prof.h"
 #include "render/gl_backend.h"
 #include "render/gl.h"
 
@@ -593,6 +594,7 @@ void HOTD_APIENTRY esBufferData(GLenum target, GLsizeiptr size, const void* data
 
 void HOTD_APIENTRY esBufferSubData(GLenum target, GLintptr offset, GLsizeiptr size, const void* data)
 {
+    const hotd::prof::Scope ps(hotd::prof::kEsSub);   // (ios: the FPS counter's split: buffer updates on ES)
     if (target != TEXTURE_BUFFER) { realBufferSubData(target, offset, size, data); return; }
     auto it = gTexBufs.find(gBoundTexBuf);
     if (it == gTexBufs.end() || size <= 0) return;
