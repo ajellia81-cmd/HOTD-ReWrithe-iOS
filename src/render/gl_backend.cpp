@@ -19,6 +19,7 @@ namespace {
 
 bool gES = false;
 std::string gInUse;
+GLuint gIosViewFbo = 0;   // ios: SDL's UIKit view's framebuffer (the window's "0"; 0 elsewhere)
 
 // EGL / ANGLE constants (EGL/eglext_angle.h)
 constexpr SDL_EGLAttrib kEglNone = 0x3038;
@@ -236,8 +237,9 @@ void setShaderCacheFile(const std::string& path) { gBlobFile = path; }
 
 void prepareWindow(int backend)
 {
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(HOTD_IOS)
     // quest: the device's OpenGL ES 3 (the Quest: Adreno, ES 3.2) through EGL; no desktop OpenGL, no ANGLE
+    // (ios, docs/ios.md: the same on an iPhone / iPad: Apple's OpenGL ES 3.0 through SDL's UIKit view)
     (void)backend;
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -293,7 +295,7 @@ bool angleAvailable()
 SDL_GLContext createContext(SDL_Window*& window, int backend, std::string& err)
 {
     err.clear();
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(HOTD_IOS)
     (void)backend;   // quest: OpenGL ES always (prepareWindow's attributes), the ES layer's replacements on it
     SDL_GLContext es = SDL_GL_CreateContext(window);
     if (!es) {
@@ -301,6 +303,12 @@ SDL_GLContext createContext(SDL_Window*& window, int backend, std::string& err)
         return nullptr;
     }
     gES = true;
+#if defined(HOTD_IOS)
+    // ios: SDL's UIKit view draws into its own framebuffer object; the game's "framebuffer 0" (the window) is that one
+    // (loadES's BindFramebuffer replacement)
+    gIosViewFbo = GLuint(SDL_GetNumberProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_UIKIT_OPENGL_FRAMEBUFFER_NUMBER, 0));
+    SDL_Log("OpenGL ES (iOS): the view's framebuffer %u", unsigned(gIosViewFbo));
+#endif
     if (const char* missing = load()) {
         err = std::string("OpenGL ES function missing: ") + missing;
         SDL_GL_MakeCurrent(window, nullptr);
@@ -353,6 +361,7 @@ PFN_BufferSubData realBufferSubData = nullptr;
 PFN_BindTexture realBindTexture = nullptr;
 PFN_DeleteBuffers realDeleteBuffers = nullptr;
 PFN_TexParameteri realTexParameteri = nullptr;
+PFN_BindFramebuffer realBindFramebuffer = nullptr;
 using PFN_DepthRangef = void(HOTD_APIENTRY*)(GLfloat n, GLfloat f);
 using PFN_GetIntegerv = void(HOTD_APIENTRY*)(GLenum pname, GLint* data);
 PFN_DepthRangef esDepthRangef = nullptr;
@@ -624,6 +633,9 @@ void HOTD_APIENTRY esDeleteBuffers(GLsizei n, const GLuint* buffers)
     realDeleteBuffers(n, buffers);
 }
 
+// ios: framebuffer 0 (the window) is SDL's UIKit view's framebuffer object there
+void HOTD_APIENTRY esBindFramebuffer(GLenum target, GLuint fbo) { realBindFramebuffer(target, fbo ? fbo : gIosViewFbo); }
+
 // GPU timer queries (menuperf's GPU time): skipped on ES (no time: 0, always ready)
 void HOTD_APIENTRY esGenQueries(GLsizei n, GLuint* ids) { for (GLsizei i = 0; i < n; ++i) ids[i] = GLuint(i + 1); }
 void HOTD_APIENTRY esBeginQuery(GLenum, GLuint) {}
@@ -678,6 +690,8 @@ const char* loadES()
     EndQuery = esEndQuery;
     GetQueryObjectiv = esGetQueryObjectiv;
     GetQueryObjectui64v = esGetQueryObjectui64v;
+    realBindFramebuffer = BindFramebuffer;
+    if (gIosViewFbo) BindFramebuffer = esBindFramebuffer;   // (ios only: elsewhere the window is framebuffer 0)
     SDL_Log("OpenGL ES: depth clamp %s", gDepthClampExt ? "on (GL_EXT_depth_clamp)" : "unavailable");
     return nullptr;
 }

@@ -24,7 +24,7 @@
 #include <tlhelp32.h>
 #else
 #include <cstdlib>
-#ifdef __APPLE__
+#if defined(__APPLE__) && !defined(HOTD_IOS)   // (ios: no libproc in the iOS SDK; no Steam there either)
 #include <libproc.h>
 #endif
 #endif
@@ -671,6 +671,8 @@ bool steamRunning()
         found = _wcsicmp(pe.szExeFile, L"steam.exe") == 0;
     CloseHandle(snap);
     return found;
+#elif defined(HOTD_IOS)
+    return false;   // (ios: no Steam)
 #elif defined(__APPLE__)
     // macOS: the processes' names (libproc); Steam's is "steam_osx"
     const int n = proc_listallpids(nullptr, 0);

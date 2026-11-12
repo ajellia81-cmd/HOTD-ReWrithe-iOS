@@ -64,6 +64,9 @@ Renderer, Auto picks DirectX (ANGLE) by itself where OpenGL 3.3 is missing ([doc
 Linux / Steam Deck: the `linux-x86_64.tar.gz` works the same way (`./hotd-setup.sh`). macOS: the `macos-universal.zip`
 (unsigned). Step by step for both: [Linux, Steam Deck and macOS](#linux-steam-deck-and-macos) just below. Online play step by step:
 [ONLINE HOWTO](docs/online_howto.md) (also `ONLINE HOWTO.txt` in the package). Mods: [docs/modding.md](docs/modding.md).
+iPhone / iPad (experimental, not yet tested on a phone): an unsigned `.ipa` for LiveContainer or other sideloading,
+your game files copied in with the Files app, touch controls (tap to shoot, RELOAD / II buttons that hide while a
+controller is connected): [docs/ios.md](docs/ios.md).
 
 Details below: the menu, Boss Mode, PC Mode, the Gallery, the Jukebox, secrets, controllers and light guns, online co-op, mods, Sonic Mode, 4 players, game speed, the CRT filter.
 

@@ -14,7 +14,7 @@
 #include <windows.h>
 #include <sapi.h>
 #pragma comment(lib, "ole32.lib")
-#elif !defined(_WIN32) && !defined(__ANDROID__)
+#elif !defined(_WIN32) && !defined(__ANDROID__) && !defined(HOTD_IOS)   // (ios: no programs to start: no voice)
 #define HOTD_TTS_SPAWN 1
 #include <spawn.h>
 #include <sys/stat.h>

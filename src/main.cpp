@@ -137,6 +137,10 @@
 #if defined(__ANDROID__)
 #include "util/android_app.h"   // quest (docs/quest.md)
 #include <pthread.h>
+namespace hotd { namespace mobile = hotd::android; }   // (the files page: the headset's folder)
+#elif defined(HOTD_IOS)
+#include "util/ios_app.h"   // ios (docs/ios.md)
+namespace hotd { namespace mobile = hotd::ios; }   // (the files page: the app's Documents folder)
 #endif
 
 #include <SDL3/SDL.h>
@@ -1158,6 +1162,15 @@ static void vrSwap(SDL_Window* window)
 #if defined(__ANDROID__)
     if (gVr) return;
 #endif
+#if defined(HOTD_IOS)
+    // ios (docs/ios.md): the touch buttons over the frame, their presses as input; nothing presented in the background
+    if (!hotd::ios::beforePresent(window)) {
+        SDL_Event q{};
+        q.type = SDL_EVENT_QUIT;
+        SDL_PushEvent(&q);
+        return;
+    }
+#endif
     SDL_GL_SwapWindow(window);
 }
 // quest: a flat screen's frame (the setup page, the menus, the end screen) in VR when vr.ini menu_panel is on (the
@@ -1227,7 +1240,7 @@ static void vrFlatFrame(SDL_Window* window, const char* where)
     }
     vrSwap(window);
 }
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(HOTD_IOS)
 // quest: the player's game files are not in the app's folder yet: the setup page is this message instead (on the big
 // screen), the folder is looked at again every 3 s; once both are there, the launcher's Start as at a normal start (the
 // files check, then the menu). gQuestWaitFiles: set in main (a launcher start without both files)
@@ -1242,7 +1255,7 @@ static bool questWaitFiles(game::Launcher& menu, SDL_Window* window, int ww, int
         return false;
     if (SDL_GetTicks() >= nextLook) {
         nextLook = SDL_GetTicks() + 3000;
-        const android::GameFiles f = android::findGameFiles();
+        const mobile::GameFiles f = mobile::findGameFiles();
         if (!f.arcade.empty() && !f.pc.empty()) {
             SDL_Log("quest: the game files are there now: %s, %s", f.arcade.c_str(), f.pc.c_str());
             menu.cfg.arcade = f.arcade;
@@ -1256,7 +1269,7 @@ static bool questWaitFiles(game::Launcher& menu, SDL_Window* window, int ww, int
             SDL_PushEvent(&ev);
             return false;
         }
-        lines = android::missingFilesLines(f);
+        lines = mobile::missingFilesLines(f);
     }
     if (!textOk) {
         std::string err;
@@ -4959,6 +4972,15 @@ int main(int argc, char* argv[])
     questArgv.push_back(nullptr);
     argc = int(questArgs.size());
     argv = questArgv.data();
+#elif defined(HOTD_IOS)
+    // ios (docs/ios.md): SDL's UIKit app passes no arguments: --root (the game's data copied out of the bundle) and the
+    // game files from the app's Documents folder (util/ios_app.h)
+    static std::vector<std::string> iosArgs = hotd::ios::startArgs(argc, argv);
+    static std::vector<char*> iosArgv;
+    for (std::string& s : iosArgs) iosArgv.push_back(s.data());
+    iosArgv.push_back(nullptr);
+    argc = int(iosArgs.size());
+    argv = iosArgv.data();
 #endif
     // relprep: --version (the one version: CMakeLists.txt's project(... VERSION ...), generated/hotd_version.h)
     for (int i = 1; i < argc; ++i)
@@ -7859,11 +7881,18 @@ int main(int argc, char* argv[])
     gl::setShaderCacheFile(cacheDir() + "angle_shaders.bin");   // (angle: ANGLE's compiled shaders, kept for the next start)
     gl::prepareWindow(cfg.renderer);   // (angle: ANGLE sets the window up for EGL)
     int backend = cfg.renderer;
-#if !defined(__ANDROID__)   // (quest: no update check on the headset: a sideloaded APK is updated with adb install)
+#if !defined(__ANDROID__) && !defined(HOTD_IOS)   // (quest: no update check on the headset: a sideloaded APK is updated with adb install; ios: nor a sideloaded app)
     if ((cfg.updateCheck && !automated) || std::getenv("HOTD_UPDATE_URL")) util::updateCheckStart(HOTD_VERSION_TEXT);   // Options > System > Check for Updates
 #endif
+#if defined(HOTD_IOS)
+    // ios (docs/ios.md): the whole screen at its own pixels (2868 x 1320 on an iPhone 18 Pro Max, not the 956 x 440
+    // points), no status bar; the window is the screen whatever its size
+    constexpr SDL_WindowFlags kPlatformWindow = SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_BORDERLESS | SDL_WINDOW_FULLSCREEN;
+#else
+    constexpr SDL_WindowFlags kPlatformWindow = 0;
+#endif
     SDL_Window* window = SDL_CreateWindow("The House of the Dead: ReWrithe", w, h,
-                                          SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | (automated ? SDL_WINDOW_HIDDEN : 0));
+                                          SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | kPlatformWindow | (automated ? SDL_WINDOW_HIDDEN : 0));
     if (!window && backend == gl::kBackendAngle) {   // angle: ANGLE's window surface failed (Direct3D 10.0 / 9): OpenGL
         SDL_Log("renderer: DirectX (ANGLE): %s (the graphics need DirectX 10.1); trying OpenGL", SDL_GetError());
         gl::prepareWindow(backend = gl::kBackendGL);
@@ -7885,8 +7914,12 @@ int main(int argc, char* argv[])
         SDL_SetWindowPosition(window, int(SDL_WINDOWPOS_CENTERED_DISPLAY(d)), int(SDL_WINDOWPOS_CENTERED_DISPLAY(d)));
         SDL_SyncWindow(window);
     }
+#if defined(HOTD_IOS)
+    (void)startFullscreen;   // (ios: always the whole screen at its own size: kPlatformWindow; no toggle, no resolution)
+#else
     if (startFullscreen) toggleFullscreen(window);   // before the first frame: the launcher, splash and menu too
     else if (!automated && launcher) util::applyResolution(window);
+#endif
     util::logWindowState(window, "start");   // (deckfs #74: the sizes in the log: a Steam Deck's report had none)
     if (std::getenv("HOTD_RES_LOG")) {   // testing (a hidden window): the Resolution page's sizes, a window size set and kept
         auto list = [](const char* what, const std::vector<util::Size>& v) {
@@ -7941,6 +7974,9 @@ int main(int argc, char* argv[])
                                     (cfg.renderer == gl::kBackendGL ? "\nVideo > Renderer is OpenGL: Auto (launcher.ini renderer=auto) also tries DirectX." : ""),
                                 playerRun);
     SDL_Log("renderer: %s (%s)", gl::backendInUse().c_str(), reinterpret_cast<const char*>(gl::GetString(gl::VERSION)));
+#if defined(HOTD_IOS)
+    hotd::ios::installAppEvents(window);   // (ios: the background pause and the touch buttons)
+#endif
     gl::debugInit();             // compat: HOTD_GL_DEBUG=1's messages into hotd.log
     gl::logDriver("graphics");   // compat: vendor, renderer, OpenGL / GLSL versions (a warning below 3.3)
     util::crashHandlerCheck();   // rescrash: the driver's modules are loaded now (one may set its own handler)
@@ -8338,7 +8374,7 @@ int main(int argc, char* argv[])
         menu.open(game::Launcher::Mode::Repair);
     (void)filesFromData;
     menu.quiet = autoMenu && !setupTest;
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(HOTD_IOS)
     gQuestWaitFiles = launcher && (cfg.arcade.empty() || cfg.pc.empty());   // quest: the files message (questWaitFiles)
 #endif
     // setup2: What's New once on the first start of a new version (launcher.ini lastversion= another one, or settings
@@ -13655,6 +13691,9 @@ int main(int argc, char* argv[])
         int lw, lh, ww, wh;
         SDL_GetWindowSize(window, &lw, &lh);
         SDL_GetWindowSizeInPixels(window, &ww, &wh);
+#if defined(HOTD_IOS)
+        hotd::ios::setInGame(screen == Screen::Game);   // (ios: RELOAD + II in play, BACK in the menus)
+#endif
         if (static Uint64 crashCheckAt = 0; SDL_GetTicks() >= crashCheckAt) {   // rescrash: the crash handler still ours
             util::crashHandlerCheck();                                         // (an overlay / a driver may replace it)
             crashCheckAt = SDL_GetTicks() + 1000;
@@ -13666,7 +13705,7 @@ int main(int argc, char* argv[])
         if (screen == Screen::Launcher) {
             SDL_Event e;
             while (SDL_PollEvent(&e)) {
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(HOTD_IOS)
                 if (gQuestWaitFiles && e.type != SDL_EVENT_QUIT) continue;   // quest: the files message takes no input
 #endif
                 if (online.editing() && online.textMode() && e.type != SDL_EVENT_QUIT) {   // online co-op: a field typed
@@ -13691,8 +13730,8 @@ int main(int argc, char* argv[])
                 else if (isFullscreenKey(e)) { if (!setupWin) toggleFullscreen(window); }   // F11 (not in the setup's small window)
                 else menu.handle(e, window);
             }
-#if defined(__ANDROID__)
-            if (questWaitFiles(menu, window, ww, wh)) {   // quest: "copy your game files" on the big screen
+#if defined(__ANDROID__) || defined(HOTD_IOS)
+            if (questWaitFiles(menu, window, ww, wh)) {   // quest: "copy your game files" on the big screen (ios: the phone's)
                 vrFlatFrame(window, "files page");
                 menuPace();
                 continue;

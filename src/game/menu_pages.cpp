@@ -41,6 +41,19 @@ bool menuQuest = std::getenv("HOTD_QUEST_MENUS") && *std::getenv("HOTD_QUEST_MEN
 // the VR rows (moved from Gameplay)
 static void questRows(std::vector<Frontend::Extra>& r)
 {
+#if defined(HOTD_IOS)
+    // ios (docs/ios.md): the rows an iPhone / iPad leaves out: the screen is always the whole display at its own
+    // resolution and refresh (OpenGL ES always), the files live in the app's Documents folder (the Files app, not the
+    // setup's file boxes), a sideloaded app has no update check, no desktop or Steam; the touch has no "off the screen"
+    // (RELOAD button / a second finger instead)
+    static const char* const kIosHidden[] = {
+        "Display Mode", "Display", "Resolution", "Renderer", "VRR (G-Sync / FreeSync)",
+        "Edge Reload",
+        "Repair / Change Files", "Check for Updates", "Desktop Shortcut", "Add to Steam"};
+    r.erase(std::remove_if(r.begin(), r.end(), [](const Frontend::Extra& e) {
+                return std::find_if(std::begin(kIosHidden), std::end(kIosHidden), [&e](const char* s) { return e.name == s; }) != std::end(kIosHidden);
+            }), r.end());
+#endif
     if (!menuQuest)
         return;
     static const char* const kHidden[] = {

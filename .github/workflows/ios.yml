@@ -1,0 +1,36 @@
+# iOS build (docs/ios.md): the iPhone / iPad app as an unsigned .ipa for LiveContainer or another sideloading tool.
+# Runs on a push to the branch "ios", on a version tag, or by hand (Actions -> ios -> Run workflow). Uploads the .ipa
+# as the run's artifact (Summary page -> Artifacts). NO GAME DATA is used or packaged.
+name: ios
+
+on:
+  push:
+    branches: ["ios", "main"]
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    name: iOS (arm64, unsigned)
+    runs-on: macos-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode
+        run: xcodebuild -version && cmake --version
+      - name: Build and package
+        run: bash ios/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hotd-rewrithe-ios
+          path: |
+            build-ios/ipa/*.ipa
+            build-ios/ipa/*.sha256
+          if-no-files-found: error

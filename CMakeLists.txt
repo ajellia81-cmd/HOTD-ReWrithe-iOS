@@ -13,15 +13,30 @@ if(ANDROID AND CMAKE_HOST_WIN32)
     add_link_options("--driver-mode=g++")
 endif()
 
+# ios (2026-11-12, docs/ios.md): an iPhone / iPad build (cmake -G Xcode -DCMAKE_SYSTEM_NAME=iOS; ios/build.sh) is the
+# game alone as an app bundle with SDL3 linked statically; its code is told by HOTD_IOS (util/ios_app.*, the OpenGL ES
+# context in render/gl_backend.cpp, the rows it leaves out of Options)
+if(IOS)
+    add_compile_definitions(HOTD_IOS)
+    set(HOTD_FETCH_SDL3_DEFAULT ON)
+else()
+    set(HOTD_FETCH_SDL3_DEFAULT OFF)
+endif()
+
 # SDL3: by default use an installed copy (set CMAKE_PREFIX_PATH or SDL3_DIR to it).
 # HOTD_FETCH_SDL3=ON downloads and builds SDL3 from GitHub instead.
-option(HOTD_FETCH_SDL3 "Download and build SDL3 with FetchContent" OFF)
+option(HOTD_FETCH_SDL3 "Download and build SDL3 with FetchContent" ${HOTD_FETCH_SDL3_DEFAULT})
 set(HOTD_SDL3_TAG "release-3.2.10" CACHE STRING "SDL3 git tag used when HOTD_FETCH_SDL3 is ON")
 
 if(HOTD_FETCH_SDL3)
     include(FetchContent)
-    set(SDL_SHARED ON CACHE BOOL "" FORCE)
-    set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+    if(IOS)   # (ios: one executable in the bundle, SDL linked in: no framework to embed and sign)
+        set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+        set(SDL_STATIC ON CACHE BOOL "" FORCE)
+    else()
+        set(SDL_SHARED ON CACHE BOOL "" FORCE)
+        set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+    endif()
     set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(SDL3
         GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
@@ -133,6 +148,39 @@ if(ANDROID)
     target_link_libraries(hotd_flags INTERFACE android log EGL)
     target_link_options(hotd PRIVATE "-Wl,-z,max-page-size=16384")   # (16 KB pages: newer Android; the Quest's 4 KB too)
     target_compile_options(hotd_flags INTERFACE -Wno-error=format-security)   # (the NDK's default; the game's printf helpers)
+elseif(IOS)
+    # ios (docs/ios.md): the app bundle "HOTD ReWrithe.app" (SDL's UIKit app delegate calls SDL_main); the game's own
+    # data/ copied into the bundle after the build (before Xcode signs it, when it signs: no PNG crushing of the
+    # menus' pictures by the resource phase); the developer tools stay desktop programs
+    add_executable(hotd MACOSX_BUNDLE src/main.cpp src/util/ios_app.cpp)
+    set(HOTD_IOS_BUNDLE_ID "com.tawhid.hotdrewrithe" CACHE STRING "The iOS app's bundle identifier")
+    set(HOTD_IOS_DEPLOYMENT "15.0" CACHE STRING "The oldest iOS the app runs on")
+    set_target_properties(hotd PROPERTIES
+        OUTPUT_NAME "HOTDReWrithe"
+        MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/ios/Info.plist.in
+        MACOSX_BUNDLE_GUI_IDENTIFIER ${HOTD_IOS_BUNDLE_ID}
+        MACOSX_BUNDLE_BUNDLE_NAME "HOTD ReWrithe"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION}
+        MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
+        XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER ${HOTD_IOS_BUNDLE_ID}
+        XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${HOTD_IOS_DEPLOYMENT}
+        XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
+        XCODE_ATTRIBUTE_ENABLE_BITCODE NO
+        XCODE_ATTRIBUTE_GCC_GENERATE_DEBUGGING_SYMBOLS YES
+        XCODE_ATTRIBUTE_DEBUG_INFORMATION_FORMAT "dwarf-with-dsym")
+    option(HOTD_IOS_SIGN "Let Xcode sign the app (a development team set in Xcode); OFF: an unsigned app for LiveContainer / sideloading" OFF)
+    if(NOT HOTD_IOS_SIGN)
+        set_target_properties(hotd PROPERTIES
+            XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED NO
+            XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED NO
+            XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "")
+    endif()
+    target_link_libraries(hotd_flags INTERFACE "-framework OpenGLES" "-framework UIKit" "-framework Foundation"
+        "-framework QuartzCore" "-framework GameController" "-framework AVFoundation" "-framework AudioToolbox")
+    add_custom_command(TARGET hotd POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E remove_directory "$<TARGET_BUNDLE_DIR:hotd>/data"
+        COMMAND "${CMAKE_COMMAND}" -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/data" "$<TARGET_BUNDLE_DIR:hotd>/data"
+        VERBATIM)
 else()
     add_executable(hotd src/main.cpp)
 endif()
@@ -147,7 +195,7 @@ if(WIN32)
     target_link_libraries(hotd_net PUBLIC ws2_32 bcrypt iphlpapi)
 endif()
 target_link_libraries(hotd_flags INTERFACE hotd_net)
-if(NOT ANDROID)   # (quest: the APK is the game alone; the developer tools stay desktop programs)
+if(NOT ANDROID AND NOT IOS)   # (quest: the APK is the game alone; the developer tools stay desktop programs; ios too)
 # the netplay tests without the game: crypto, the handshake, replay / tamper rejection, a parser fuzz (127.0.0.1 only)
 add_executable(hotd_nettest src/net/nettest.cpp)
 target_link_libraries(hotd_nettest PRIVATE hotd_net)
@@ -334,7 +382,7 @@ if(WIN32)   # the package's game exe stub (util/game_exe.h): no DLLs (static run
     set_property(TARGET hotd_launch PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded")
     add_dependencies(hotd hotd_launch)
 endif()
-if(NOT ANDROID)
+if(NOT ANDROID AND NOT IOS)
 add_executable(hotd_viewer src/viewer/main.cpp src/game/files_check.cpp)   # files_check: a package's ROM zip -> regions
 target_link_libraries(hotd_viewer PRIVATE hotd_engine)
 endif()
@@ -516,7 +564,7 @@ if(MSVC)
 endif()
 
 # Differential checker: the port against MAME / PC-harness records (docs/proof.md).
-if(NOT ANDROID)
+if(NOT ANDROID AND NOT IOS)
 add_executable(hotd_proof src/proof/main.cpp)
 target_link_libraries(hotd_proof PRIVATE hotd_logic)
 if(MSVC)
@@ -602,7 +650,7 @@ endif()
 
 # tests (worker "tests", 2026-11-09; docs/testing.md "CTest"): ctest -C Release from the build folder; the unit layer
 # (hotd_unit, no game data) and the module layer (the headless runs, with the game files from the environment)
-if(NOT ANDROID)
+if(NOT ANDROID AND NOT IOS)
     enable_testing()
     add_subdirectory(tests)
 endif()
