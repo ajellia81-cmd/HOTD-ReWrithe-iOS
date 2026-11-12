@@ -144,6 +144,8 @@ namespace hotd { namespace mobile = hotd::ios; }   // (the files page: the app's
 // ios (docs/ios.md "Frame pacing"): SDL's UIKit OpenGL ES has no swap interval: the game's vsync pacing goes to the
 // CADisplayLink of util/ios_vsync.mm instead (every call below: the game's and the menus' applyPresentation)
 #define SDL_GL_SetSwapInterval(n) hotd::ios::setSwapInterval(n)
+// (and the frame limiter's sleeps counted apart from the frame's work: the FPS counter, util/ios_app.cpp)
+#define SDL_DelayPrecise(ns) hotd::ios::delayPrecise(ns)
 #endif
 
 #include <SDL3/SDL.h>

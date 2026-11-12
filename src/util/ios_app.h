@@ -51,8 +51,11 @@ void setInGame(bool inGame);
 // false: the system is ending the app
 bool beforePresent(SDL_Window* window);
 
-// right after the present: the frame-time statistics (hotd.log every 10 s: "ios: frames ...")
+// right after the present: the frame-time statistics (hotd.log every 10 s: "ios: frames ...") and the FPS counter
 void afterPresent();
+
+// the game's frame limiter's sleep (main.cpp's SDL_DelayPrecise on iOS): slept, and counted apart from the frame's work
+void delayPrecise(unsigned long long ns);
 
 // the OpenGL ES framebuffer SDL's UIKit view draws into (iOS has no window framebuffer 0)
 unsigned defaultFramebuffer(SDL_Window* window);

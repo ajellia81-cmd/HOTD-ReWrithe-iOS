@@ -130,21 +130,25 @@ float gAimX = 0, gAimY = 0;        // the touch mouse's last place in play (wind
 int gReloads = 0, gEscapes = 0;    // presses waiting for beforePresent (no events pushed from inside the filter)
 Uint64 gFlashReload = 0, gFlashEsc = 0;
 
-// the frame times (hotd.log every 10 s): what a "frame drop" was. work: from the last present's end to this frame's
-// commands sent (the game's logic, drawing, its own limiter's sleep); wait: the display link's tick; the interval:
-// present to present. Slow: an interval over 1.5 display beats of the rate in effect
+// the frame times (hotd.log every 10 s, and the FPS counter on the screen, temporary: the "frame drops" test). Per
+// frame, from the last present's end: sleep = the game's own limiter (SDL_DelayPrecise, main.cpp: delayPrecise), cpu =
+// the rest until the frame's commands are sent (the game's logic, building the picture, the driver: a GPU sync in a
+// call shows here too), gpu = every 30th frame a glFinish's wait (how far the GPU is behind once the commands are in),
+// wait = the display link's tick; the interval: present to present. Slow: over 1.5 beats of the display link
 struct FrameStats {
-    Uint64 lastEnd = 0, windowStart = 0;
-    int frames = 0, slow = 0;
-    double workSum = 0, workMax = 0, waitSum = 0, worst = 0;
-    void work(Uint64 end, Uint64 afterWait)
+    Uint64 lastEnd = 0, windowStart = 0, sleepNs = 0;
+    int frames = 0, slow = 0, gpuSamples = 0;
+    double cpuSum = 0, cpuMax = 0, sleepSum = 0, waitSum = 0, gpuSum = 0, gpuMax = 0, worst = 0;
+    void work(Uint64 end, Uint64 afterWait, double gpuMs)
     {
-        if (!lastEnd) return;
-        const double w = double(end - lastEnd) * 1e-6, wt = double(afterWait - end) * 1e-6;
-        workSum += w, waitSum += wt;
-        workMax = std::max(workMax, w);
+        if (!lastEnd) { sleepNs = 0; return; }
+        const double sl = double(sleepNs) * 1e-6, w = double(end - lastEnd) * 1e-6 - sl - std::max(0.0, gpuMs);
+        cpuSum += w, sleepSum += sl, waitSum += double(afterWait - end) * 1e-6 - std::max(0.0, gpuMs);
+        cpuMax = std::max(cpuMax, w);
+        if (gpuMs >= 0) gpuSum += gpuMs, gpuMax = std::max(gpuMax, gpuMs), ++gpuSamples;
+        sleepNs = 0;
     }
-    void presented(Uint64 now)
+    bool presented(Uint64 now, const char* what)   // true: a window's numbers ready (fps etc. below)
     {
         if (lastEnd) {
             const double iv = double(now - lastEnd) * 1e-6;
@@ -155,18 +159,14 @@ struct FrameStats {
         }
         lastEnd = now;
         if (!windowStart) windowStart = now;
-        const double secs = double(now - windowStart) * 1e-9;
-        if (secs >= 10.0 && frames > 0) {
-            SDL_Log("ios: frames: %d in %.1f s (%.1f fps; the display link %.0f Hz); slow %d (worst %.1f ms); the frame's "
-                    "work avg %.1f ms, max %.1f ms; the wait for the display avg %.1f ms",
-                    frames, secs, double(frames) / secs, displayLinkHz(), slow, worst, workSum / frames, workMax,
-                    waitSum / frames);
-            *this = FrameStats{};
-            lastEnd = windowStart = now;
-        }
+        return frames > 0 && double(now - windowStart) * 1e-9 >= (what ? 10.0 : 0.5);
     }
+    double secs(Uint64 now) const { return double(now - windowStart) * 1e-9; }
+    void reset(Uint64 now) { *this = FrameStats{}; lastEnd = windowStart = now; }
 };
-FrameStats gStats;
+FrameStats gStats, gShown;   // the 10 s log; the counter's half second
+std::vector<std::string> gFpsLines;
+bool gFpsChanged = false;
 
 enum Zone { kNone, kReload, kEsc };
 
@@ -349,6 +349,33 @@ void drawButtons(SDL_Window* window)
     esc.drawAnchored(pw, ph, (e.x + e.w * 0.45f) * k, (e.y + e.h * 0.45f) * k, 0.5f, 0.5f);
 }
 
+// the FPS counter (temporary, the "frame drops" test): top right inside the safe area, over everything, pad or not
+void drawFps(SDL_Window* window)
+{
+    static Overlay fps;
+    static int ready = -1;
+    if (ready < 0) {
+        std::string err;
+        ready = fps.init(err) ? 1 : 0;
+        fps.translate = false;
+        fps.setStyle(150, 120, 255, 120);
+    }
+    if (ready != 1 || gFpsLines.empty()) return;
+    int pw = 0, ph = 0, lw = 0, lh = 0;
+    SDL_GetWindowSizeInPixels(window, &pw, &ph);
+    SDL_GetWindowSize(window, &lw, &lh);
+    if (pw <= 0 || ph <= 0 || lw <= 0) return;
+    if (gFpsChanged) fps.setText(gFpsLines, std::max(2, ph / 400)), gFpsChanged = false;
+    SDL_Rect safe{0, 0, lw, lh};
+    if (!SDL_GetWindowSafeArea(window, &safe) || safe.w <= 0) safe = {0, 0, lw, lh};
+    const float k = float(pw) / float(lw);
+    gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
+    gl::Viewport(0, 0, pw, ph);
+    gl::Disable(gl::SCISSOR_TEST);
+    gl::Disable(gl::DEPTH_TEST);
+    fps.drawAnchored(pw, ph, float(safe.x + safe.w) * k - 8.0f, float(safe.y) * k + 8.0f, 1.0f, 0.0f);
+}
+
 } // namespace
 
 std::string documentsDir()
@@ -497,7 +524,7 @@ void setInGame(bool inGame)
 bool beforePresent(SDL_Window* window)
 {
     if (gWindow != window) gWindow = window;
-    if (!gBackground) drawButtons(window);
+    if (!gBackground) drawButtons(window), drawFps(window);
     sendPresses();
     while (gBackground && !gTerminating) {   // (nothing drawn: the events pumped until the app is back)
         SDL_PumpEvents();
@@ -511,17 +538,56 @@ bool beforePresent(SDL_Window* window)
     if (!viewRb && window)
         viewRb = gl::GLuint(SDL_GetNumberProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_UIKIT_OPENGL_RENDERBUFFER_NUMBER, 0));
     if (viewRb) gl::BindRenderbuffer(gl::RENDERBUFFER, viewRb);
-    // vsync (ios_vsync.mm): the frame's commands to the GPU now (it works while we wait), then the display's next tick
+    // vsync (ios_vsync.mm): the frame's commands to the GPU now (it works while we wait), then the display's next tick.
+    // Every 30th frame a glFinish first: how long the GPU still needs once the commands are in (the counter's "gpu")
     const Uint64 workEnd = SDL_GetTicksNS();
-    gl::Flush();
+    static unsigned frameNo = 0;
+    double gpuMs = -1;
+    if (++frameNo % 30 == 0) {
+        gl::Finish();
+        gpuMs = double(SDL_GetTicksNS() - workEnd) * 1e-6;
+    } else {
+        gl::Flush();
+    }
     waitForDisplay();
-    gStats.work(workEnd, SDL_GetTicksNS());
+    const Uint64 afterWait = SDL_GetTicksNS();
+    gStats.work(workEnd, afterWait, gpuMs);
+    gShown.work(workEnd, afterWait, gpuMs);
     return !gTerminating;
 }
 
 void afterPresent()
 {
-    gStats.presented(SDL_GetTicksNS());
+    const Uint64 now = SDL_GetTicksNS();
+    if (gStats.presented(now, "log")) {
+        const FrameStats& f = gStats;
+        SDL_Log("ios: frames: %d in %.1f s (%.1f fps; the display link %.0f Hz); slow %d (worst %.1f ms); a frame: cpu avg "
+                "%.1f ms (max %.1f), gpu %.1f ms (max %.1f, %d samples), the limiter's sleep %.1f ms, the display wait %.1f ms",
+                f.frames, f.secs(now), double(f.frames) / f.secs(now), displayLinkHz(), f.slow, f.worst, f.cpuSum / f.frames,
+                f.cpuMax, f.gpuSamples ? f.gpuSum / f.gpuSamples : 0.0, f.gpuMax, f.gpuSamples, f.sleepSum / f.frames,
+                f.waitSum / f.frames);
+        gStats.reset(now);
+    }
+    if (gShown.presented(now, nullptr)) {
+        const FrameStats& f = gShown;
+        char a[96], b[96], c[96], g[24] = "-";
+        if (f.gpuSamples) std::snprintf(g, sizeof g, "%.1f", f.gpuSum / f.gpuSamples);
+        std::snprintf(a, sizeof a, "FPS %.1f  (%.0f Hz)", double(f.frames) / f.secs(now), displayLinkHz());
+        std::snprintf(b, sizeof b, "frame %.1f ms  worst %.0f", f.secs(now) * 1000.0 / f.frames, f.worst);
+        std::snprintf(c, sizeof c, "cpu %.1f  gpu %s  sleep %.1f", f.cpuSum / f.frames, g, f.sleepSum / f.frames);
+        gFpsLines = {a, b, c};
+        gFpsChanged = true;
+        gShown.reset(now);
+    }
+}
+
+void delayPrecise(unsigned long long ns)
+{
+    const Uint64 t0 = SDL_GetTicksNS();
+    SDL_DelayPrecise(ns);
+    const Uint64 slept = SDL_GetTicksNS() - t0;
+    gStats.sleepNs += slept;
+    gShown.sleepNs += slept;
 }
 
 unsigned defaultFramebuffer(SDL_Window* window)
