@@ -165,6 +165,10 @@ bool Hud::init(std::string& err)
     gl::Uniform4f(uUV_, 0.0f, 1.0f, 1.0f, 0.0f);   // (wide2d: the whole picture; upload's wide modes set and restore it)
     gl::GenVertexArrays(1, &vao_);
     gl::GenTextures(1, &texture_);
+#if defined(HOTD_IOS)
+    gl::GenTextures(kTexRing, texRing_);   // (freshTexture: one per upload, in turn)
+    texture_ = texRing_[0];
+#endif
     return true;
 }
 
@@ -924,6 +928,7 @@ bool Hud::drawUnder(const Runtime& rt, int ww, int wh, const float clear[3])
 // wide 3 shows the middle wideW pixels of a picture wider than that (tileExtend)
 void Hud::upload(const std::vector<uint8_t>& rgba, int W, int H, int ww, int wh, float dx, bool fit, int wide, int wideW)
 {
+    freshTexture();   // (ios: a texture no queued draw reads)
     gl::BindTexture(gl::TEXTURE_2D, texture_);
     gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
     gl::texTag("hud picture");   // (questui: the upload log, render/gl_backend.h)
@@ -1180,6 +1185,7 @@ void Hud::fillRect(const uint8_t rgb[3], int ww, int wh, int y0, int y1)
     if (y1 <= y0 || wh <= 0)
         return;
     const uint8_t px[4] = {rgb[0], rgb[1], rgb[2], 255};
+    freshTexture();
     gl::BindTexture(gl::TEXTURE_2D, texture_);
     gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
     gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA8, 1, 1, 0, gl::RGBA, gl::UNSIGNED_BYTE, px);
@@ -1207,6 +1213,7 @@ void Hud::pcFadeDraw(float level, int ww, int wh)
     const float v = up ? std::min(level - 1.0f, 1.0f) : 1.0f - std::max(level, 0.0f);
     const uint8_t px[4] = {uint8_t(up ? v * 255.0f + 0.5f : 0), uint8_t(up ? v * 255.0f + 0.5f : 0),
                            uint8_t(up ? v * 255.0f + 0.5f : 0), uint8_t(up ? 255 : v * 255.0f + 0.5f)};
+    freshTexture();
     gl::BindTexture(gl::TEXTURE_2D, texture_);
     gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
     gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA8, 1, 1, 0, gl::RGBA, gl::UNSIGNED_BYTE, px);

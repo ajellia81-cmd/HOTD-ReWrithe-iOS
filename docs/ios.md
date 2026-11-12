@@ -56,6 +56,10 @@ texture's, blitted into SDL's view at the present) and writes the zone's coverag
 zone draws (the fragment shader's `oCover`, `coverTex_` attached as colour 1, detached before the pieces read it):
 no copy at all. Into SDL's own view (`HOTD_IOS_DIRECT=1`) the copy as before.
 
+**The HUD's uploads:** with the copy gone the counter showed "hud" 14-15 ms of a 17 ms frame: `Hud`'s one texture
+re-specified several times a frame (the 2D layer, its sides, the fills, the fades) made Apple's OpenGL ES wait for
+the GPU at each. On iOS each upload takes the next of a ring of 48 textures (`Hud::freshTexture`).
+
 **Frame rate:** 60 fps by default on iOS (Options > Video > Frame Rate; Display Refresh for 120 where LiveContainer
 lets frames faster than 60 through). The first device test at 120 paced unevenly.
 

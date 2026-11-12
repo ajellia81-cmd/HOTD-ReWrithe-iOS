@@ -192,6 +192,22 @@ private:
     int barRows_ = -1;
     // the arcade 2D layer: one 496 x 384 texture, drawn over the 3D picture
     unsigned program_ = 0, vao_ = 0, texture_ = 0;
+#if defined(HOTD_IOS)
+    // ios (docs/ios.md "The HUD's uploads"): texture_ re-specified several times a frame (the 2D layer, its sides,
+    // the fills, the fades) made Apple's OpenGL ES wait for the GPU at each (the FPS counter's "hud" 14-15 ms of a
+    // 17 ms frame). There every upload takes the next texture of a ring instead, none reused while a frame in flight
+    // may still read it
+    static constexpr int kTexRing = 48;
+    unsigned texRing_[kTexRing] = {};
+    int texNext_ = 0;
+    void freshTexture()
+    {
+        texNext_ = (texNext_ + 1) % kTexRing;
+        texture_ = texRing_[texNext_];
+    }
+#else
+    void freshTexture() {}
+#endif
     int uRect_ = -1;
     int uTint_ = -1;
     int uUV_ = -1;     // wide2d: the quad's texture range (kVs uUV)   // rainbow2: the sights in the rainbow (a > 0.5: the picture's brightest channel times rgb)
