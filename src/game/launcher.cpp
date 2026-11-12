@@ -513,7 +513,7 @@ bool LaunchConfig::load(const std::string& file)
         if (padV < 3 && padStyleRaw[p] >= 4)
             pad[p].style = padStyleRaw[p] == 4 ? 3 : 4;
 #if defined(HOTD_IOS)
-    if (iosRate < 2) frameRate = 60, iosRate = 2;   // (ios: 60 once, over an older launcher.ini's; a later choice stays)
+    if (iosRate < 1) frameRate = 60, iosRate = 1;   // (ios: 60 once, over an older launcher.ini's; a later choice stays)
 #endif
     return true;
 }

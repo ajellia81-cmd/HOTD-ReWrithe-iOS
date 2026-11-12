@@ -408,7 +408,7 @@ struct LaunchConfig {
     // "late"). Options > Video > Frame Rate: Display Refresh for 120 where it works. iosRate: the 60 once applied
     // (launcher.ini iosrate=1), so a choice made afterwards stays
     int frameRate = 60;
-    int iosRate = 0;   // (2: the 60 of 2026-11-12's second pass applied once: "a steady 60 by the FPS counter")
+    int iosRate = 0;   // (1: the 60 default applied once; the player's own choice since stays, 120 included)
 #else
     int frameRate = 0;
 #endif
