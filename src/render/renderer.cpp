@@ -1046,6 +1046,15 @@ bool Renderer::init(std::string& err)
     // earlyz: Arcade Sort's keys from the vertex depth; HOTD_SORT_FRAGDEPTH=1 (and HOTD_SORT_EXACT) the depthcmp path
     // (gl_FragDepth on every pixel: the GPU's early depth test off), kept for comparisons
     sortFragDepth_ = std::getenv("HOTD_SORT_FRAGDEPTH") != nullptr || std::getenv("HOTD_SORT_EXACT") != nullptr;
+#if defined(HOTD_IOS)
+    // ios (docs/ios.md "Depth ties"): Apple's GPUs have no 24-bit depth (Metal's Depth24Unorm_Stencil8 is the Mac's
+    // alone), so its OpenGL ES keeps DEPTH24 as a 32-bit float: the earlyz path's ties, exact only by the rounding to
+    // 24-bit steps, were decided per pixel by float noise instead (a window's polygons and the wall behind them in
+    // turn, frame by frame: the background flicker). The keys written as they are (gl_FragDepth) instead.
+    // HOTD_IOS_EARLYZ=1: the vertex path as on the PC
+    if (!std::getenv("HOTD_IOS_EARLYZ")) sortFragDepth_ = true;
+    SDL_Log("renderer (iOS): Arcade Sort's keys %s", sortFragDepth_ ? "per pixel (gl_FragDepth)" : "from the vertex depth");
+#endif
     auto withDefines = [&](const char* src) {
         std::string s = src;
         if (sortFragDepth_) s.insert(s.find('\n') + 1, "#define SORT_FRAGDEPTH 1\n");

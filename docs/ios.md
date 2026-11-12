@@ -69,7 +69,11 @@ unavailable" in the log), so the near and far planes clipped what `Renderer::dra
 the Model 2"): a wall or window near the camera cut open from frame to frame. The player's A/B tests
 (`HOTD_IOS_DIRECT=1`, `HOTD_SIDE_OLD=1`) flickered both, so not the side strips' cover. Emulated in every vertex
 shader on iOS (`esShaderSource`): main wrapped, clip-space z kept within -w..w in front of the eye.
-`HOTD_IOS_NO_ZCLAMP=1`: off. **The 120 Hz ceiling:** with every wait gone a frame's work is 3-4 ms, yet the presents
+`HOTD_IOS_NO_ZCLAMP=1`: off (the flicker stayed). **Depth ties (the edge flicker, 2):** Apple's GPUs have no 24-bit
+depth buffer, so DEPTH24 is a 32-bit float there; the PC's earlyz path (Arcade Sort's keys from the vertex depth) needs
+the rounding to 24-bit steps to make two polygons with one key tie exactly, so on the phone float noise decided them per
+pixel (a window and the wall behind it in turn). iOS writes the keys per pixel instead (`gl_FragDepth`, the depthcmp
+path); `HOTD_IOS_EARLYZ=1`: as on the PC. **The 120 Hz ceiling:** with every wait gone a frame's work is 3-4 ms, yet the presents
 stay at exactly 60 a second, the rest of the frame spent in the present's blit: the OpenGL ES layer is shown at 60 Hz
 here (the display link itself runs at 120). 120 would need a Metal presentation (ANGLE's Metal back end).
 
