@@ -1,6 +1,9 @@
 # iOS build (docs/ios.md): the iPhone / iPad app as an unsigned .ipa for LiveContainer or another sideloading tool.
-# Runs on a push to the branch "ios", on a version tag, or by hand (Actions -> ios -> Run workflow). Uploads the .ipa
-# as the run's artifact (Summary page -> Artifacts). NO GAME DATA is used or packaged.
+# Runs on a push to "main" / "ios", on a version tag, or by hand (Actions -> ios -> Run workflow).
+# The .ipa itself (no zip around it) goes to the release "latest", always under the same name, so one link is always
+# the newest build:
+#   https://github.com/<owner>/<repo>/releases/download/latest/HOTD-ReWrithe-iOS.ipa
+# NO GAME DATA is used or packaged.
 name: ios
 
 on:
@@ -14,7 +17,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write   # (the release "latest")
 
 jobs:
   ios:
@@ -27,10 +30,18 @@ jobs:
         run: xcodebuild -version && cmake --version
       - name: Build and package
         run: bash ios/build.sh
-      - uses: actions/upload-artifact@v4
-        with:
-          name: hotd-rewrithe-ios
-          path: |
-            build-ios/ipa/*.ipa
-            build-ios/ipa/*.sha256
-          if-no-files-found: error
+      - name: Publish the .ipa (release "latest")
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ipa="$(ls build-ios/ipa/*.ipa | head -1)"
+          cp "$ipa" build-ios/ipa/HOTD-ReWrithe-iOS.ipa
+          notes="Newest iOS build: commit ${GITHUB_SHA::7} ($(basename "$ipa")). Install with LiveContainer (+ -> this .ipa). Your own game files go into the app's Documents folder (docs/ios.md)."
+          if ! gh release view latest > /dev/null 2>&1; then
+            gh release create latest --title "iOS (newest build)" --notes "$notes" --prerelease --target "$GITHUB_SHA"
+          else
+            gh release edit latest --notes "$notes"
+          fi
+          gh release upload latest build-ios/ipa/HOTD-ReWrithe-iOS.ipa --clobber
+          echo "### [HOTD-ReWrithe-iOS.ipa](https://github.com/${GITHUB_REPOSITORY}/releases/download/latest/HOTD-ReWrithe-iOS.ipa)" >> "$GITHUB_STEP_SUMMARY"

@@ -10,8 +10,9 @@ game's own `data/` copied out of the package on the first start of each build.
 
 ## Install with LiveContainer
 
-1. Get the `.ipa`: GitHub -> Actions -> **ios** -> the newest run -> Artifacts -> `hotd-rewrithe-ios` (a zip with
-   `HOTD-ReWrithe-ios-v<version>.ipa` in it). Or build it on a Mac: `ios/build.sh` (below).
+1. Get the `.ipa`: the repository's release **latest** always has the newest build as `HOTD-ReWrithe-iOS.ipa`
+   (`https://github.com/<owner>/<repo>/releases/download/latest/HOTD-ReWrithe-iOS.ipa`). Or build it on a Mac:
+   `ios/build.sh` (below).
 2. LiveContainer -> **+** -> choose the `.ipa`. It is unsigned on purpose: LiveContainer signs it itself.
 3. Start it once: it shows **"needs your own game files"** with the folder to use, and makes that folder.
 4. **Files** app -> On My iPhone -> **LiveContainer** -> `Data` -> `Application` -> the app's folder -> `Documents`
@@ -78,7 +79,7 @@ Signed by Xcode instead (a free Apple ID works for 7 days): configure with `-DHO
 `build-ios/hotd_m2.xcodeproj`, choose your team on the `hotd` target, run it on the phone.
 
 CI: `.github/workflows/ios.yml` runs `ios/build.sh` on `macos-latest` on a push to `ios` / `main`, a version tag or
-by hand, and uploads the `.ipa` as the run's artifact.
+by hand, and puts the `.ipa` (no zip) on the release `latest` under a fixed name.
 
 ## Code
 
