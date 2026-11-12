@@ -468,6 +468,14 @@ bool beforePresent(SDL_Window* window)
         SDL_PumpEvents();
         SDL_Delay(50);
     }
+    // SDL's UIKit present shows whichever renderbuffer is bound ("code that binds something else is responsible for
+    // rebinding viewRenderbuffer", SDL_uikitopenglview.m): the game's own (its scene targets' depth / colour) would be
+    // presented instead of the screen's, and the screen keeps its last good frame (the first device test: the SEGA
+    // logo stayed while the attract ran behind it). The view's colour renderbuffer, bound before every present
+    static gl::GLuint viewRb = 0;
+    if (!viewRb && window)
+        viewRb = gl::GLuint(SDL_GetNumberProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_UIKIT_OPENGL_RENDERBUFFER_NUMBER, 0));
+    if (viewRb) gl::BindRenderbuffer(gl::RENDERBUFFER, viewRb);
     return !gTerminating;
 }
 
