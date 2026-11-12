@@ -196,7 +196,7 @@ private:
     gl::GLint uRot_ = -1;
     gl::GLint uCull_ = -1, uMip_ = -1, uPcCullSign_ = -1, uClampUV_ = -1, uDepthBias_ = -1, uFloorY_ = -1, uFloorPull_ = -1, uPush_ = -1, uFade_ = -1, uSideOnly_ = -1, uSideClip_ = -1, uFlat_ = -1, uGrey_ = -1, uSepia_ = -1, uRainbow_ = -1, uRainbowPhase_ = -1, uBloodRgb_ = -1, uRainbowTable_ = -1, uRainbowGame_ = -1, uRainbowSync_ = -1, uBloodRows_ = -1, uTie_ = -1, uTieItem_ = -1, uIdMode_ = -1;
     gl::GLint uCamPos_ = -1, uM2Known_ = -1, uM2Light_ = -1, uM2Diffuse_ = -1, uM2Ambient_ = -1, uM2SpecScale_ = -1, uM2SpecCtl_ = -1, uCamFwd_ = -1, uM2Gamma_ = -1, uM2Black_ = -1;
-    gl::GLint uHasRepl_ = -1, uPcFilter_ = -1, uGreyRepl_ = -1, uSort_ = -1, uSortItem_ = -1, uPrepass_ = -1, uHybrid_ = -1, uKeyless_ = -1, uProj_ = -1, uBiasScale_ = -1;
+    gl::GLint uHasRepl_ = -1, uPcFilter_ = -1, uGreyRepl_ = -1, uSort_ = -1, uSortItem_ = -1, uSortFrag_ = -1, uPrepass_ = -1, uHybrid_ = -1, uKeyless_ = -1, uProj_ = -1, uBiasScale_ = -1;
     // render5: the zone's coverage (alpha) copied after its passes, for the neighbouring zones' side-strip pieces (draw)
     gl::GLuint coverTex_ = 0;
     int coverW_ = 0, coverH_ = 0;

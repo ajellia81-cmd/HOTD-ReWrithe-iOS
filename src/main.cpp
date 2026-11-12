@@ -140,6 +140,7 @@
 namespace hotd { namespace mobile = hotd::android; }   // (the files page: the headset's folder)
 #elif defined(HOTD_IOS)
 #include "util/ios_app.h"   // ios (docs/ios.md)
+#include "util/ios_test.h"   // (the flicker test modes)
 namespace hotd { namespace mobile = hotd::ios; }   // (the files page: the app's Documents folder)
 // ios (docs/ios.md "Frame pacing"): SDL's UIKit OpenGL ES has no swap interval: the game's vsync pacing goes to the
 // CADisplayLink of util/ios_vsync.mm instead (every call below: the game's and the menus' applyPresentation)
@@ -17340,6 +17341,10 @@ int main(int argc, char* argv[])
             next += lastTickNs;
             if (gScene.active() && gScene.slow)   // the cut-scene viewer's slow motion: half speed
                 next += lastTickNs;
+#if defined(HOTD_IOS)
+            if (hotd::iostest::slow())   // (ios: the test modes' slow motion, util/ios_test.h: a quarter speed)
+                next += 3 * lastTickNs;
+#endif
             ++runs;
             if (stopAt && rt.frameCount >= stopAt)
                 running = false;

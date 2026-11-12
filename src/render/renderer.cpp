@@ -1,4 +1,7 @@
 #include "util/frame_prof.h"
+#if defined(HOTD_IOS)
+#include "util/ios_test.h"
+#endif
 #include "render/gl_backend.h"
 #include "render/renderer.h"
 
@@ -55,6 +58,9 @@ uniform int uTieItem;
 uniform int uFlat;              // DrawItem::flat (arcade): every polygon untextured in this palette entry, -1 = off
 uniform int uSort;              // Draw Depth "Arcade Sort" (drawDepth())
 uniform int uSortItem;          // the item's place in the list (0-127): ties go to the earlier model
+#ifdef SORT_RUNTIME
+uniform int uSortFrag;          // ios (util/ios_test.h): 1 = SORT_FRAGDEPTH's keys, 0 = earlyz's, switched while running
+#endif
 uniform samplerBuffer uSortKeys;   // Renderer::sortKeysOf: 4 texels per triangle of the stage's buffer
 uniform vec3 uCamFwd;
 uniform float uHybrid;          // depthfix: Depth Buffer's key band (renderer.h DrawDepth), 0 = off
@@ -222,7 +228,10 @@ R"(
             zv = kz <= 0.0 ? 0u : e < -12 ? 0u : e < 0 ? (m | 0x1000u) >> uint(-e) : e < 15 ? (uint(e + 1) << 12) | m : 0xFFFFu;
             key = float(zv * 256u + uint(min(uSortItem, 127)) * 2u + 1u);   // (odd steps of 2: the float rounding stays inside)
         }
-#ifdef SORT_FRAGDEPTH
+#if defined(SORT_RUNTIME)
+        if (uSortFrag != 0) {
+#endif
+#if defined(SORT_FRAGDEPTH) || defined(SORT_RUNTIME)
         gl_Position.z = (key * 2.0 - 16777215.0) / 16777215.0 * gl_Position.w;
         // depthcmp (2026-10-27): every pixel of the polygon gets this depth bit for bit (fragment shader). Through
         // z / w the interpolated depth wobbled by a step across the polygon, so two polygons with one key were decided
@@ -230,7 +239,11 @@ R"(
         // building showed over its wall; MAME render_polygons: one bucket per key, the later polygon in front, as
         // LEQUAL in draw order here)
         vSortDepth = key / 16777215.0;
-#else
+#endif
+#if defined(SORT_RUNTIME)
+        } else {
+#endif
+#if !defined(SORT_FRAGDEPTH)
         // earlyz (2026-10-27): the same order from the vertex depth alone (no gl_FragDepth, so the GPU's early depth
         // test stays on). The 16-bit key zv only, at (zv + 0.25) / 2^24 in the depth buffer: the keyed draws use the
         // depth range 0 .. 2^-8 (Renderer::draw), so near 0 the float error of z * w / w and of the interpolation
@@ -239,6 +252,9 @@ R"(
         // (Renderer::draw), so on a tie the earlier model, drawn later, wins by LEQUAL, inside one model the later
         // polygon. (zv * 2^-15 + 2^-17 - 1 is exact in a float.)
         gl_Position.z = (float(zv) * (1.0 / 32768.0) + (1.0 / 131072.0) - 1.0) * gl_Position.w;
+#endif
+#if defined(SORT_RUNTIME)
+        }
 #endif
     }
     if (uTie != 0.0) {   // Renderer::debugTie
@@ -552,7 +568,7 @@ void main() {
 #ifdef BAND_SHIFT_TEST
     if (uBandShift > 1e30) discard;   // (sinkfix test: an extra uniform first, the others at other places)
 #endif
-#ifdef SORT_FRAGDEPTH
+#if defined(SORT_FRAGDEPTH) || defined(SORT_RUNTIME)
     gl_FragDepth = vSortDepth >= 0.0 ? vSortDepth : gl_FragCoord.z;   // Arcade Sort: the polygon's key (vertex shader)
 #endif
 #ifdef KEY_BAND_FRAG
@@ -1046,18 +1062,13 @@ bool Renderer::init(std::string& err)
     // earlyz: Arcade Sort's keys from the vertex depth; HOTD_SORT_FRAGDEPTH=1 (and HOTD_SORT_EXACT) the depthcmp path
     // (gl_FragDepth on every pixel: the GPU's early depth test off), kept for comparisons
     sortFragDepth_ = std::getenv("HOTD_SORT_FRAGDEPTH") != nullptr || std::getenv("HOTD_SORT_EXACT") != nullptr;
-#if defined(HOTD_IOS)
-    // ios (docs/ios.md "Depth ties"): Apple's GPUs have no 24-bit depth (Metal's Depth24Unorm_Stencil8 is the Mac's
-    // alone), so its OpenGL ES keeps DEPTH24 as a 32-bit float: the earlyz path's ties, exact only by the rounding to
-    // 24-bit steps, were decided per pixel by float noise instead (a window's polygons and the wall behind them in
-    // turn, frame by frame: the background flicker). The keys written as they are (gl_FragDepth) instead.
-    // HOTD_IOS_EARLYZ=1: the vertex path as on the PC
-    if (!std::getenv("HOTD_IOS_EARLYZ")) sortFragDepth_ = true;
-    SDL_Log("renderer (iOS): Arcade Sort's keys %s", sortFragDepth_ ? "per pixel (gl_FragDepth)" : "from the vertex depth");
-#endif
     auto withDefines = [&](const char* src) {
         std::string s = src;
         if (sortFragDepth_) s.insert(s.find('\n') + 1, "#define SORT_FRAGDEPTH 1\n");
+#if defined(HOTD_IOS)
+        // ios (docs/ios.md "Depth ties", util/ios_test.h): both ways in one program, a uniform choosing (the test modes)
+        else s.insert(s.find('\n') + 1, "#define SORT_RUNTIME 1\n");
+#endif
         return s;
     };
     auto link = [&](const char* extra, std::string& e) -> gl::GLuint {
@@ -1131,7 +1142,7 @@ bool Renderer::init(std::string& err)
     // the uniforms the draw sends, by name (each member: its location in program_)
     const std::pair<const char*, gl::GLint*> uniforms[] = {
         {"uSort", &uSort_}, {"uHybrid", &uHybrid_}, {"uKeyless", &uKeyless_}, {"uProj", &uProj_},
-        {"uBiasScale", &uBiasScale_}, {"uSortItem", &uSortItem_}, {"uPrepass", &uPrepass_}, {"uHasRepl", &uHasRepl_},
+        {"uBiasScale", &uBiasScale_}, {"uSortItem", &uSortItem_}, {"uSortFrag", &uSortFrag_}, {"uPrepass", &uPrepass_}, {"uHasRepl", &uHasRepl_},
         {"uPcFilter", &uPcFilter_}, {"uGreyRepl", &uGreyRepl_}, {"uViewProj", &uViewProj_}, {"uOffset", &uOffset_},
         {"uRot", &uRot_}, {"uUVScroll", &uUVScroll_}, {"uShading", &uShading_}, {"uLighting", &uLighting_},
         {"uLightDir", &uLightDir_}, {"uAmbient", &uAmbient_}, {"uFilter", &uFilter_}, {"uTransp", &uTransp_},
@@ -1201,8 +1212,10 @@ void Renderer::setPaletteAnimation(const uint16_t* entries)
 #if defined(HOTD_IOS)
     // ios (docs/ios.md "Texture uploads"): every frame a new texture (the old one deleted, freed after the frames in
     // flight): re-specifying the one the last frame drew with made Apple's OpenGL ES wait for the GPU
-    if (palAnim_) gl::DeleteTextures(1, &palAnim_);
-    gl::GenTextures(1, &palAnim_);
+    if (hotd::iostest::paletteFresh() || !palAnim_) {   // (the test modes E / G: in place, as on the PC)
+        if (palAnim_) gl::DeleteTextures(1, &palAnim_);
+        gl::GenTextures(1, &palAnim_);
+    }
 #endif
     gl::BindTexture(gl::TEXTURE_2D, palAnim_);
     gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
@@ -1635,11 +1648,29 @@ void Renderer::draw(const std::vector<DrawItem>& items, const Camera& cam, int w
 
     // depthfix: Depth Buffer (and the viewer's Free Cam) with the key band (the vertex / fragment shader);
     // HOTD_KEY_BAND=x sets it (0: the plain per-pixel depth, comparisons)
+#if defined(HOTD_IOS)
+    // ios (util/ios_test.h): the flicker's test modes. A: the keys per pixel (Apple's GPUs have no 24-bit depth: the
+    // vertex path's ties, exact by the rounding to 24-bit steps on the PC, fall to float noise there; docs/ios.md
+    // "Depth ties"); B / G: from the vertex depth as on the PC; F: Arcade Sort off
+    sortFragDepth_ = hotd::iostest::sortPerPixel();
+    const bool sort = drawDepth() == kArcadeSort && !cam.perPixelDepth && !hotd::iostest::sortOff();
+#else
     const bool sort = drawDepth() == kArcadeSort && !cam.perPixelDepth;
+#endif
     static const char* bandEnv = std::getenv("HOTD_KEY_BAND");
     const float band = sort ? 0.0f : bandEnv ? std::max(0.0f, float(std::atof(bandEnv))) : cam.keyBand >= 0.0f ? cam.keyBand : cam.perPixelDepth ? kKeyBandFreeCam : kKeyBand;
     const bool bandFrag = band > 0.0f && programBand_ != 0;
     gl::UseProgram(bandFrag ? programBand_ : program_);
+#if defined(HOTD_IOS)
+    {   // (ios: the test modes, util/ios_test.h: the depth clamp in the vertex shaders, gl_backend's esShaderSource)
+        const gl::GLuint pr = bandFrag ? programBand_ : program_;
+        static gl::GLuint locFor[2] = {0, 0};
+        static gl::GLint loc[2] = {-1, -1};
+        const int k = bandFrag ? 1 : 0;
+        if (locFor[k] != pr) locFor[k] = pr, loc[k] = gl::GetUniformLocation(pr, "hotd_noZClamp");
+        if (loc[k] >= 0) gl::Uniform1i(loc[k], hotd::iostest::zClamp() ? 0 : 1);
+    }
+#endif
     // sinkfix: the band program's own uniform locations where its driver placed them elsewhere (init), for this draw
     struct LocSwap {
         std::vector<std::pair<gl::GLint*, gl::GLint>>* locs;
@@ -1735,6 +1766,9 @@ void Renderer::draw(const std::vector<DrawItem>& items, const Camera& cam, int w
     // Draw Depth (renderer.h): Arcade Sort, the polygons' sort keys on unit 8
     static const bool sortExact = std::getenv("HOTD_SORT_EXACT") != nullptr;   // debugging: the keys not rounded
     gl::Uniform1i(uSort_, sort ? (sortExact ? 2 : 1) : 0);
+#if defined(HOTD_IOS)
+    if (!bandFrag) gl::Uniform1i(uSortFrag_, sortFragDepth_ ? 1 : 0);
+#endif
     gl::Uniform1f(uHybrid_, band);
     gl::Uniform2f(uProj_, (fa + n) / (fa - n), 2 * fa * n / (fa - n));
     gl::Uniform1f(uBiasScale_, n);
@@ -1802,7 +1836,12 @@ void Renderer::draw(const std::vector<DrawItem>& items, const Camera& cam, int w
     bool hasSide = false;
     for (const DrawItem& it : items)
         hasSide = hasSide || it.sideOnly;
+#if defined(HOTD_IOS)
+    static const bool sideOldEnv = std::getenv("HOTD_SIDE_OLD") != nullptr;
+    const bool sideOld = sideOldEnv || hotd::iostest::sideOld();   // (the test modes D / G)
+#else
     static const bool sideOld = std::getenv("HOTD_SIDE_OLD") != nullptr;   // (comparisons: the visfix order, no cover test)
+#endif
 #if defined(HOTD_IOS)
     // ios (docs/ios.md "The coverage copy"): out of the view's own drawable the copy below took 21-23 ms of a frame on
     // Apple's OpenGL ES; the visfix order without it flickered (a window at the picture's edge: the side pieces and
