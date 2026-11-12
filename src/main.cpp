@@ -141,6 +141,9 @@ namespace hotd { namespace mobile = hotd::android; }   // (the files page: the h
 #elif defined(HOTD_IOS)
 #include "util/ios_app.h"   // ios (docs/ios.md)
 namespace hotd { namespace mobile = hotd::ios; }   // (the files page: the app's Documents folder)
+// ios (docs/ios.md "Frame pacing"): SDL's UIKit OpenGL ES has no swap interval: the game's vsync pacing goes to the
+// CADisplayLink of util/ios_vsync.mm instead (every call below: the game's and the menus' applyPresentation)
+#define SDL_GL_SetSwapInterval(n) hotd::ios::setSwapInterval(n)
 #endif
 
 #include <SDL3/SDL.h>
@@ -1172,6 +1175,9 @@ static void vrSwap(SDL_Window* window)
     }
 #endif
     SDL_GL_SwapWindow(window);
+#if defined(HOTD_IOS)
+    hotd::ios::afterPresent();   // (the frame-time statistics)
+#endif
 }
 // quest: a flat screen's frame (the setup page, the menus, the end screen) in VR when vr.ini menu_panel is on (the
 // Quest's default): the window's picture on a big screen (Scene::panelFrame), the right controller's ray as the mouse

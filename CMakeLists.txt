@@ -152,7 +152,9 @@ elseif(IOS)
     # ios (docs/ios.md): the app bundle "HOTD ReWrithe.app" (SDL's UIKit app delegate calls SDL_main); the game's own
     # data/ copied into the bundle after the build (before Xcode signs it, when it signs: no PNG crushing of the
     # menus' pictures by the resource phase); the developer tools stay desktop programs
-    add_executable(hotd MACOSX_BUNDLE src/main.cpp src/util/ios_app.cpp)
+    enable_language(OBJCXX)   # (util/ios_vsync.mm: the display link)
+    add_executable(hotd MACOSX_BUNDLE src/main.cpp src/util/ios_app.cpp src/util/ios_vsync.mm)
+    set_source_files_properties(src/util/ios_vsync.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
     set(HOTD_IOS_BUNDLE_ID "com.tawhid.hotdrewrithe" CACHE STRING "The iOS app's bundle identifier")
     set(HOTD_IOS_DEPLOYMENT "15.0" CACHE STRING "The oldest iOS the app runs on")
     set_target_properties(hotd PROPERTIES

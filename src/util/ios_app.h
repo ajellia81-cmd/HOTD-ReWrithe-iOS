@@ -51,7 +51,16 @@ void setInGame(bool inGame);
 // false: the system is ending the app
 bool beforePresent(SDL_Window* window);
 
+// right after the present: the frame-time statistics (hotd.log every 10 s: "ios: frames ...")
+void afterPresent();
+
 // the OpenGL ES framebuffer SDL's UIKit view draws into (iOS has no window framebuffer 0)
 unsigned defaultFramebuffer(SDL_Window* window);
+
+// vsync (util/ios_vsync.mm): SDL_GL_SetSwapInterval emulated with a CADisplayLink (SDL's UIKit OpenGL ES has none):
+// interval n = the display's rate / n; waitForDisplay (in beforePresent): the next tick before the present
+bool setSwapInterval(int interval);
+void waitForDisplay();
+double displayLinkHz();   // the link's measured rate (0: not yet)
 
 } // namespace hotd::ios

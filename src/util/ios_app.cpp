@@ -130,6 +130,44 @@ float gAimX = 0, gAimY = 0;        // the touch mouse's last place in play (wind
 int gReloads = 0, gEscapes = 0;    // presses waiting for beforePresent (no events pushed from inside the filter)
 Uint64 gFlashReload = 0, gFlashEsc = 0;
 
+// the frame times (hotd.log every 10 s): what a "frame drop" was. work: from the last present's end to this frame's
+// commands sent (the game's logic, drawing, its own limiter's sleep); wait: the display link's tick; the interval:
+// present to present. Slow: an interval over 1.5 display beats of the rate in effect
+struct FrameStats {
+    Uint64 lastEnd = 0, windowStart = 0;
+    int frames = 0, slow = 0;
+    double workSum = 0, workMax = 0, waitSum = 0, worst = 0;
+    void work(Uint64 end, Uint64 afterWait)
+    {
+        if (!lastEnd) return;
+        const double w = double(end - lastEnd) * 1e-6, wt = double(afterWait - end) * 1e-6;
+        workSum += w, waitSum += wt;
+        workMax = std::max(workMax, w);
+    }
+    void presented(Uint64 now)
+    {
+        if (lastEnd) {
+            const double iv = double(now - lastEnd) * 1e-6;
+            worst = std::max(worst, iv);
+            ++frames;
+            const double hz = displayLinkHz() > 1 ? displayLinkHz() : 60.0;
+            if (iv > 1.5 * 1000.0 / hz) ++slow;
+        }
+        lastEnd = now;
+        if (!windowStart) windowStart = now;
+        const double secs = double(now - windowStart) * 1e-9;
+        if (secs >= 10.0 && frames > 0) {
+            SDL_Log("ios: frames: %d in %.1f s (%.1f fps; the display link %.0f Hz); slow %d (worst %.1f ms); the frame's "
+                    "work avg %.1f ms, max %.1f ms; the wait for the display avg %.1f ms",
+                    frames, secs, double(frames) / secs, displayLinkHz(), slow, worst, workSum / frames, workMax,
+                    waitSum / frames);
+            *this = FrameStats{};
+            lastEnd = windowStart = now;
+        }
+    }
+};
+FrameStats gStats;
+
 enum Zone { kNone, kReload, kEsc };
 
 bool buttonsShown()
@@ -473,7 +511,17 @@ bool beforePresent(SDL_Window* window)
     if (!viewRb && window)
         viewRb = gl::GLuint(SDL_GetNumberProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_UIKIT_OPENGL_RENDERBUFFER_NUMBER, 0));
     if (viewRb) gl::BindRenderbuffer(gl::RENDERBUFFER, viewRb);
+    // vsync (ios_vsync.mm): the frame's commands to the GPU now (it works while we wait), then the display's next tick
+    const Uint64 workEnd = SDL_GetTicksNS();
+    gl::Flush();
+    waitForDisplay();
+    gStats.work(workEnd, SDL_GetTicksNS());
     return !gTerminating;
+}
+
+void afterPresent()
+{
+    gStats.presented(SDL_GetTicksNS());
 }
 
 unsigned defaultFramebuffer(SDL_Window* window)

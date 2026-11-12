@@ -71,6 +71,7 @@ constexpr GLenum DEBUG_OUTPUT = 0x92E0, DEBUG_OUTPUT_SYNCHRONOUS = 0x8242, DONT_
     X(GLboolean, IsVertexArray, (GLuint array)) \
     X(GLenum, GetError, (void)) \
     X(void, Finish, (void)) \
+    X(void, Flush, (void)) \
     X(const GLubyte*, GetString, (GLenum name)) \
     X(void, ReadPixels, (GLint x, GLint y, GLsizei w, GLsizei h, GLenum format, GLenum type, void* data)) \
     X(void, PixelStorei, (GLenum pname, GLint param)) \

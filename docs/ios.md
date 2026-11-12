@@ -39,6 +39,14 @@ Installed on its own (Xcode, AltStore, SideStore), the folder is Files -> On My 
 The buttons sit inside the screen's safe area (clear of the Dynamic Island and the home indicator). Options ->
 Gameplay -> **Auto Reload** reloads an empty gun by itself, if you prefer no button.
 
+**Frame pacing:** SDL's UIKit OpenGL ES has no vsync (swap interval), so at first the game's frames went out on its
+limiter's own clock, not the display's: some refreshes showed a frame twice and the next one skipped, "frame drops"
+while the game itself kept its rate. `util/ios_vsync.mm` now runs a CADisplayLink on a thread of its own and emulates
+`SDL_GL_SetSwapInterval` (interval n: the display's rate / n); each present flushes the frame to the GPU and waits for
+the next tick. hotd.log every 10 s: `ios: frames: N in 10 s (fps; the display link's real rate); slow N (worst ms);
+the frame's work avg / max ms; the wait for the display ms` (work near the frame's whole time: the game or a GPU sync is
+the limit; slow frames with a small work: the display side).
+
 **Frame rate:** 60 fps by default on iOS (Options > Video > Frame Rate; Display Refresh for 120 where LiveContainer
 lets frames faster than 60 through). The first device test at 120 paced unevenly.
 
