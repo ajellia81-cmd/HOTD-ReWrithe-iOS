@@ -52,11 +52,7 @@
 	<true/>
 	<key>MinimumOSVersion</key>
 	<string>15.0</string>
-	<key>UIDeviceFamily</key>
-	<array>
-		<integer>1</integer>
-		<integer>2</integer>
-	</array>
+	<!-- (UIDeviceFamily: Xcode writes it from TARGETED_DEVICE_FAMILY "1,2", CMakeLists.txt) -->
 	<!-- the player's game files: the Files app shows the app's Documents folder (On My iPhone > HOTD ReWrithe) -->
 	<key>UIFileSharingEnabled</key>
 	<true/>

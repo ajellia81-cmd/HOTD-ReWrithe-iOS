@@ -17,7 +17,7 @@ endif()
 # game alone as an app bundle with SDL3 linked statically; its code is told by HOTD_IOS (util/ios_app.*, the OpenGL ES
 # context in render/gl_backend.cpp, the rows it leaves out of Options)
 if(IOS)
-    add_compile_definitions(HOTD_IOS)
+    add_compile_definitions(HOTD_IOS GLES_SILENCE_DEPRECATION)   # (Apple marks OpenGL ES deprecated; it still works)
     set(HOTD_FETCH_SDL3_DEFAULT ON)
 else()
     set(HOTD_FETCH_SDL3_DEFAULT OFF)

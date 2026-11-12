@@ -83,6 +83,16 @@ if command -v sips > /dev/null; then
     rm -rf "$tmp"
 fi
 
+# the game's own data/ in the bundle: CMake's post-build step puts it there; if Xcode left it out (where the step ran
+# is Xcode's), copied here (the app is unsigned: LiveContainer / the sideloading tool signs it afterwards)
+echo "build/ios: app $app"
+if [[ ! -d "$app/data/ui" ]]; then
+    echo "build/ios: no data/ in the bundle after the build: copying it"
+    rm -rf "$app/data"
+    cp -R "$SRC/data" "$app/data"
+fi
+ls "$app" | head -40
+
 # checks: an arm64 executable, the game's data folder in the bundle, no game data
 lipo -info "$app/HOTDReWrithe" | grep -q arm64
 [[ -d "$app/data/ui" && -d "$app/data/fonts" ]] || { echo "build/ios: the bundle has no data/ folder" >&2; exit 1; }
