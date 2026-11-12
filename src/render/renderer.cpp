@@ -1772,17 +1772,20 @@ void Renderer::draw(const std::vector<DrawItem>& items, const Camera& cam, int w
     bool hasSide = false;
     for (const DrawItem& it : items)
         hasSide = hasSide || it.sideOnly;
-#if defined(HOTD_IOS)
-    // ios (docs/ios.md "Frame pacing", the third FPS test): the coverage copy below (CopyTexSubImage2D of the whole
-    // 2868 x 1320 picture in the middle of the frame) took 21-23 ms of the CPU's 26-29 ms a frame on Apple's OpenGL ES
-    // (the GPU ~1 ms): the visfix order there instead, no copy (the side strips' pieces first, the zone over them;
-    // what render5 added: a doorway cut by the picture's edge shows the next room again rather than black).
-    // HOTD_SIDE_COVER=1 (Documents/args.txt: env:HOTD_SIDE_COVER=1): render5's copy as on the PC
-    static const bool sideOld = std::getenv("HOTD_SIDE_OLD") != nullptr || std::getenv("HOTD_SIDE_COVER") == nullptr;
-#else
     static const bool sideOld = std::getenv("HOTD_SIDE_OLD") != nullptr;   // (comparisons: the visfix order, no cover test)
-#endif
+#if defined(HOTD_IOS)
+    // ios (docs/ios.md "The coverage copy"): out of the view's own drawable the copy below took 21-23 ms of a frame on
+    // Apple's OpenGL ES; the visfix order without it flickered (a window at the picture's edge: the side pieces and
+    // the zone in turn). The frame is drawn into a texture of ours now (gl_backend's iosPresent), where the copy should
+    // be the GPU's; should it still cost more than 6 ms a frame on average over 60 frames, the visfix order after all
+    // (logged once)
+    static bool coverSlow = false;
+    static double coverMs = 0;
+    static int coverFrames = 0;
+    const bool cover = hasSide && !sideOld && !eye && !coverSlow;
+#else
     const bool cover = hasSide && !sideOld && !eye;
+#endif
     auto clearAlpha = [&](float a) {
         gl::ColorMask(gl::FALSE_, gl::FALSE_, gl::FALSE_, gl::TRUE_);
         gl::ClearColor(0.0f, 0.0f, 0.0f, a);
@@ -1805,7 +1808,25 @@ void Renderer::draw(const std::vector<DrawItem>& items, const Camera& cam, int w
         }
         gl::ActiveTexture(gl::TEXTURE0 + 9);
         gl::BindTexture(gl::TEXTURE_2D, coverTex_);
+#if defined(HOTD_IOS)
+        const Uint64 copyT0 = SDL_GetTicksNS();
+#endif
         gl::CopyTexSubImage2D(gl::TEXTURE_2D, 0, 0, 0, 0, 0, width, height);
+#if defined(HOTD_IOS)
+        coverMs += double(SDL_GetTicksNS() - copyT0) * 1e-6;
+        if (++coverFrames == 60) {
+            const double avg = coverMs / 60.0;
+            static bool said = false;
+            if (avg > 6.0) {
+                coverSlow = true;
+                SDL_Log("renderer (iOS): the coverage copy %.1f ms a frame: the side strips in the visfix order", avg);
+            } else if (!said) {
+                SDL_Log("renderer (iOS): the coverage copy %.2f ms a frame (kept)", avg);
+                said = true;
+            }
+            coverMs = 0, coverFrames = 0;
+        }
+#endif
         gl::ActiveTexture(gl::TEXTURE0 + gl::GLenum(activeUnit));
         gl::Uniform1i(uSideCover_, 1);
         gl::DepthMask(gl::TRUE_);

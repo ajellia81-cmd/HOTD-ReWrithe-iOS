@@ -3,6 +3,7 @@
 
 #include "hotd_version.h"
 #include "render/gl.h"
+#include "render/gl_backend.h"
 #include "render/overlay.h"
 #include "util/frame_prof.h"
 
@@ -177,7 +178,7 @@ struct FrameStats {
 FrameStats gStats, gShown;   // the 10 s log; the counter's half second
 std::string profText(const FrameStats& f)   // the parts' ms a frame
 {
-    static const char* const kName[prof::kSlots] = {"tick", "2d", "view", "skin", "hud", "esbuf", "gl", "copy"};
+    static const char* const kName[prof::kSlots] = {"tick", "2d", "view", "skin", "hud", "esbuf", "gl", "copy", "blit"};
     std::string t;
     char b[32];
     for (int k = 0; k < prof::kSlots; ++k) {
@@ -555,6 +556,13 @@ bool beforePresent(SDL_Window* window)
     // rebinding viewRenderbuffer", SDL_uikitopenglview.m): the game's own (its scene targets' depth / colour) would be
     // presented instead of the screen's, and the screen keeps its last good frame (the first device test: the SEGA
     // logo stayed while the attract ran behind it). The view's colour renderbuffer, bound before every present
+    // the frame (drawn into a texture of ours: gl_backend's iOS target) into the view's framebuffer
+    {
+        int pw = 0, ph = 0;
+        if (window) SDL_GetWindowSizeInPixels(window, &pw, &ph);
+        const prof::Scope ps(prof::kBlit);
+        gl::iosPresent(pw, ph);
+    }
     static gl::GLuint viewRb = 0;
     if (!viewRb && window)
         viewRb = gl::GLuint(SDL_GetNumberProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_UIKIT_OPENGL_RENDERBUFFER_NUMBER, 0));

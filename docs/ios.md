@@ -50,8 +50,10 @@ the limit; slow frames with a small work: the display side).
 **The coverage copy (the frame drops' cause):** the FPS counter's split (`util/frame_prof.h`) showed a frame's CPU
 time almost all in the 3D view, and there in render5's coverage copy (`Renderer::draw`: CopyTexSubImage2D of the
 whole 2868 x 1320 picture in the middle of the frame for the widescreen side strips): 21-23 ms of 26-29 ms, the GPU
-~1 ms. iOS uses the visfix order there instead (no copy); what render5 added (a doorway cut by the picture's edge
-shows black rather than the next room) is lost on iOS. `env:HOTD_SIDE_COVER=1` in `Documents/args.txt` brings it back.
+~1 ms. Skipping it (the visfix order) made a window at the picture's edge flicker. Now iOS draws every frame into a
+texture of its own (`gl_backend`'s `iosPresent`: "framebuffer 0" is that texture's, blitted into SDL's view at the
+present), so the copy reads a texture of the same format; should it still cost over 6 ms a frame (60 frames'
+average), the renderer falls back to the visfix order and logs it. `HOTD_IOS_DIRECT=1`: straight into the view's.
 
 **Frame rate:** 60 fps by default on iOS (Options > Video > Frame Rate; Display Refresh for 120 where LiveContainer
 lets frames faster than 60 through). The first device test at 120 paced unevenly.

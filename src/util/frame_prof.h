@@ -16,6 +16,7 @@ enum Slot {
     kEsSub,      // the ES layer: buffer data for the emulated texture buffers (uploads)
     kRDraw,      // inside the view: Renderer::draw (the GL part: state, the passes' draw calls)
     kCover,      // inside that: render5's coverage copy (CopyTexSubImage2D of the whole picture mid-frame)
+    kBlit,       // the present: our frame's texture blitted into SDL's view (gl_backend's iosPresent)
     kSlots
 };
 

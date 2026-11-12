@@ -21,6 +21,12 @@ namespace {
 bool gES = false;
 std::string gInUse;
 GLuint gIosViewFbo = 0;   // ios: SDL's UIKit view's framebuffer (the window's "0"; 0 elsewhere)
+// ios (docs/ios.md "The coverage copy"): the frame is drawn into a texture of ours (the game's "0" is this one), shown
+// by a blit into the view's at the present. Copying out of the view's own drawable (render5's CopyTexSubImage2D) took
+// 21-23 ms of a frame on Apple's OpenGL ES; out of a texture of the same format it is the GPU's copy
+GLuint gIosSceneFbo = 0, gIosSceneTex = 0, gIosSceneDepth = 0;
+int gIosSceneW = 0, gIosSceneH = 0;
+bool gIosSceneOff = false;   // (HOTD_IOS_DIRECT=1, or the target could not be made: straight into the view's)
 
 // EGL / ANGLE constants (EGL/eglext_angle.h)
 constexpr SDL_EGLAttrib kEglNone = 0x3038;
@@ -636,7 +642,10 @@ void HOTD_APIENTRY esDeleteBuffers(GLsizei n, const GLuint* buffers)
 }
 
 // ios: framebuffer 0 (the window) is SDL's UIKit view's framebuffer object there
-void HOTD_APIENTRY esBindFramebuffer(GLenum target, GLuint fbo) { realBindFramebuffer(target, fbo ? fbo : gIosViewFbo); }
+void HOTD_APIENTRY esBindFramebuffer(GLenum target, GLuint fbo)
+{
+    realBindFramebuffer(target, fbo ? fbo : gIosSceneFbo ? gIosSceneFbo : gIosViewFbo);
+}
 
 // GPU timer queries (menuperf's GPU time): skipped on ES (no time: 0, always ready)
 void HOTD_APIENTRY esGenQueries(GLsizei n, GLuint* ids) { for (GLsizei i = 0; i < n; ++i) ids[i] = GLuint(i + 1); }
@@ -702,5 +711,54 @@ void texTag(const char* name)
 {
     gTexTag = name;
 }
+
+#if defined(HOTD_IOS)
+// ios: the frame's target (gIosSceneFbo above) made or resized to the drawable's size, then the finished frame blitted
+// into the view's framebuffer; "0" stays the scene's afterwards
+void iosPresent(int w, int h)
+{
+    if (!gIosViewFbo || w <= 0 || h <= 0) return;
+    constexpr GLenum kRead = 0x8CA8, kDraw = 0x8CA9, kD24S8 = 0x88F0, kDepthStencil = 0x821A, kComplete = 0x8CD5;
+    if (gIosSceneFbo && !gIosSceneOff) {   // the frame: into the view's
+        realBindFramebuffer(kRead, gIosSceneFbo);
+        realBindFramebuffer(kDraw, gIosViewFbo);
+        BlitFramebuffer(0, 0, gIosSceneW, gIosSceneH, 0, 0, w, h, COLOR_BUFFER_BIT, NEAREST);
+        realBindFramebuffer(FRAMEBUFFER, gIosViewFbo);   // (SDL's present: its own framebuffer bound)
+    }
+    if (gIosSceneOff || (gIosSceneFbo && gIosSceneW == w && gIosSceneH == h)) {
+        if (gIosSceneFbo && !gIosSceneOff) realBindFramebuffer(FRAMEBUFFER, gIosSceneFbo);
+        return;
+    }
+    static const bool direct = std::getenv("HOTD_IOS_DIRECT") != nullptr;
+    if (direct) { gIosSceneOff = true; SDL_Log("OpenGL ES (iOS): frames straight into the view's framebuffer (HOTD_IOS_DIRECT)"); return; }
+    GLint prevTex = 0, prevRb = 0;
+    esGetIntegerv(0x8069 /* TEXTURE_BINDING_2D */, &prevTex);
+    esGetIntegerv(0x8CA7 /* RENDERBUFFER_BINDING */, &prevRb);
+    if (!gIosSceneFbo) {
+        GenFramebuffers(1, &gIosSceneFbo);
+        GenTextures(1, &gIosSceneTex);
+        GenRenderbuffers(1, &gIosSceneDepth);
+    }
+    realBindTexture(TEXTURE_2D, gIosSceneTex);
+    realTexImage2D(TEXTURE_2D, 0, GLint(RGBA8), w, h, 0, RGBA, UNSIGNED_BYTE, nullptr);
+    realTexParameteri(TEXTURE_2D, TEXTURE_MIN_FILTER, GLint(NEAREST));
+    realTexParameteri(TEXTURE_2D, TEXTURE_MAG_FILTER, GLint(NEAREST));
+    BindRenderbuffer(RENDERBUFFER, gIosSceneDepth);
+    RenderbufferStorage(RENDERBUFFER, kD24S8, w, h);
+    realBindFramebuffer(FRAMEBUFFER, gIosSceneFbo);
+    FramebufferTexture2D(FRAMEBUFFER, COLOR_ATTACHMENT0, TEXTURE_2D, gIosSceneTex, 0);
+    FramebufferRenderbuffer(FRAMEBUFFER, kDepthStencil, RENDERBUFFER, gIosSceneDepth);
+    realBindTexture(TEXTURE_2D, GLuint(prevTex));
+    BindRenderbuffer(RENDERBUFFER, GLuint(prevRb));
+    if (CheckFramebufferStatus(FRAMEBUFFER) != kComplete) {
+        SDL_Log("OpenGL ES (iOS): the frame's own target is not complete: frames straight into the view's");
+        gIosSceneOff = true;
+        realBindFramebuffer(FRAMEBUFFER, gIosViewFbo);
+        return;
+    }
+    gIosSceneW = w, gIosSceneH = h;
+    SDL_Log("OpenGL ES (iOS): the frame drawn into a %d x %d texture of ours, blitted to the view's at the present", w, h);
+}
+#endif
 
 } // namespace gl
