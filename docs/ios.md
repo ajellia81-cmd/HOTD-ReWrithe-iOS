@@ -60,6 +60,10 @@ no copy at all. Into SDL's own view (`HOTD_IOS_DIRECT=1`) the copy as before.
 re-specified several times a frame (the 2D layer, its sides, the fills, the fades) made Apple's OpenGL ES wait for
 the GPU at each. On iOS each upload takes the next of a ring of 48 textures (`Hud::freshTexture`).
 
+**Texture uploads:** the same wait elsewhere: the palette animation's texture (every frame) and the overlays' text
+(the FPS counter twice a second) get a new texture for new contents on iOS, the old one deleted (freed once the frames
+in flight are done). The frame's depth / stencil are invalidated before the blit (not stored back on the tile GPU).
+
 **Frame rate:** 60 fps by default on iOS (Options > Video > Frame Rate; Display Refresh for 120 where LiveContainer
 lets frames faster than 60 through). The first device test at 120 paced unevenly.
 

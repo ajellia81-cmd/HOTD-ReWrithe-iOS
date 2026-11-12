@@ -1189,6 +1189,12 @@ void Renderer::setPaletteAnimation(const uint16_t* entries)
 {
     static const uint16_t none[1024] = {};
     gl::ActiveTexture(gl::TEXTURE0 + 3);
+#if defined(HOTD_IOS)
+    // ios (docs/ios.md "Texture uploads"): every frame a new texture (the old one deleted, freed after the frames in
+    // flight): re-specifying the one the last frame drew with made Apple's OpenGL ES wait for the GPU
+    if (palAnim_) gl::DeleteTextures(1, &palAnim_);
+    gl::GenTextures(1, &palAnim_);
+#endif
     gl::BindTexture(gl::TEXTURE_2D, palAnim_);
     gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
     gl::TexImage2D(gl::TEXTURE_2D, 0, gl::R16UI, 1024, 1, 0, gl::RED_INTEGER, gl::UNSIGNED_SHORT, entries ? entries : none);

@@ -114,6 +114,12 @@ void Overlay::setText(const std::vector<std::string>& linesIn, int scale)
         SDL_RenderPresent(r);
         SDL_DestroyRenderer(r);
     }
+#if defined(HOTD_IOS)
+    // ios (docs/ios.md "Texture uploads"): a new texture for new contents (the old one deleted: the driver frees it
+    // once the frames in flight are done), never one a queued draw still reads (Apple's OpenGL ES waited for the GPU)
+    if (texture_) gl::DeleteTextures(1, &texture_);
+    gl::GenTextures(1, &texture_);
+#endif
     gl::BindTexture(gl::TEXTURE_2D, texture_);
     gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
     // copy row by row (the surface pitch can be larger than width * 4)
@@ -170,6 +176,12 @@ void Overlay::setTextTtf(const std::vector<std::string>& lines, const render::Tt
             col += w;
         }
     }
+#if defined(HOTD_IOS)
+    // ios (docs/ios.md "Texture uploads"): a new texture for new contents (the old one deleted: the driver frees it
+    // once the frames in flight are done), never one a queued draw still reads (Apple's OpenGL ES waited for the GPU)
+    if (texture_) gl::DeleteTextures(1, &texture_);
+    gl::GenTextures(1, &texture_);
+#endif
     gl::BindTexture(gl::TEXTURE_2D, texture_);
     gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
     gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA8, texW_, texH_, 0, gl::RGBA, gl::UNSIGNED_BYTE, px.data());
@@ -185,6 +197,12 @@ void Overlay::setImage(const std::vector<uint8_t>& rgba, int w, int h)
     scale_ = 1;
     texW_ = w;
     texH_ = h;
+#if defined(HOTD_IOS)
+    // ios (docs/ios.md "Texture uploads"): a new texture for new contents (the old one deleted: the driver frees it
+    // once the frames in flight are done), never one a queued draw still reads (Apple's OpenGL ES waited for the GPU)
+    if (texture_) gl::DeleteTextures(1, &texture_);
+    gl::GenTextures(1, &texture_);
+#endif
     gl::BindTexture(gl::TEXTURE_2D, texture_);
     gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
     gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA8, w, h, 0, gl::RGBA, gl::UNSIGNED_BYTE, rgba.data());

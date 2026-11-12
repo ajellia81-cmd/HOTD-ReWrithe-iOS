@@ -722,6 +722,15 @@ void iosPresent(int w, int h)
     if (!gIosViewFbo || w <= 0 || h <= 0) return;
     constexpr GLenum kRead = 0x8CA8, kDraw = 0x8CA9, kD24S8 = 0x88F0, kDepthStencil = 0x821A, kComplete = 0x8CD5;
     if (gIosSceneFbo && !gIosSceneOff) {   // the frame: into the view's
+        // the frame's depth / stencil are done with: not written back to memory (Apple's GPUs keep them on chip; a
+        // store of 2868 x 1320 x 4 bytes a frame saved)
+        using PFN_Invalidate = void(HOTD_APIENTRY*)(GLenum, GLsizei, const GLenum*);
+        static const auto invalidate = reinterpret_cast<PFN_Invalidate>(SDL_GL_GetProcAddress("glInvalidateFramebuffer"));
+        if (invalidate) {
+            realBindFramebuffer(FRAMEBUFFER, gIosSceneFbo);
+            const GLenum ds[1] = {kDepthStencil};
+            invalidate(FRAMEBUFFER, 1, ds);
+        }
         realBindFramebuffer(kRead, gIosSceneFbo);
         realBindFramebuffer(kDraw, gIosViewFbo);
         BlitFramebuffer(0, 0, gIosSceneW, gIosSceneH, 0, 0, w, h, COLOR_BUFFER_BIT, NEAREST);

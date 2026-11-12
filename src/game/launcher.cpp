@@ -377,7 +377,7 @@ bool LaunchConfig::load(const std::string& file)
         else if (k == "freeplay") freePlay = n != 0;
         else if (k == "framerate") frameRate = parseFrameRate(v);
 #if defined(HOTD_IOS)
-        else if (k == "iosrate") iosRate = n != 0;
+        else if (k == "iosrate") iosRate = n;
 #endif
         else if (k == "vsync") vsync = n != 0;
         else if (k == "renderer") renderer = v == "gl" ? 1 : v == "angle" ? 2 : 0;
@@ -513,7 +513,7 @@ bool LaunchConfig::load(const std::string& file)
         if (padV < 3 && padStyleRaw[p] >= 4)
             pad[p].style = padStyleRaw[p] == 4 ? 3 : 4;
 #if defined(HOTD_IOS)
-    if (!iosRate) frameRate = 60, iosRate = true;   // (ios: the 60 default once, over an older launcher.ini's)
+    if (iosRate < 2) frameRate = 60, iosRate = 2;   // (ios: 60 once, over an older launcher.ini's; a later choice stays)
 #endif
     return true;
 }
@@ -550,7 +550,7 @@ void LaunchConfig::save(const std::string& file) const
       << "\nresolution_fullscreen=" << util::sizeKey({resFullW, resFullH}) << "\nresolution_window=" << util::sizeKey({resWinW, resWinH})
       << "\ngamespeed=" << (gameSpeed < 0 ? "auto" : gameSpeed == 1 ? "60" : "arcade") << "\ncontinues=" << continues << "\nfreeplay=" << (freePlay ? 1 : 0) << "\nframerate=" << (frameRate == 0 ? std::string("display") : frameRate < 0 ? std::string("unlimited") : frameRate == kFrameRateArcade ? std::string("arcade") : std::to_string(frameRate))
 #if defined(HOTD_IOS)
-      << "\niosrate=1"
+      << "\niosrate=" << iosRate
 #endif
       << "\nvsync=" << (vsync ? 1 : 0) << "\nrenderer=" << (renderer == 1 ? "gl" : renderer == 2 ? "angle" : "auto") << "\nsmooth=" << (smooth ? 1 : 0) << "\nhitsparks=" << (hitSparks ? 1 : 0) << "\nmuzzleflash=" << (muzzleFlash ? 1 : 0) << "\nshotflashsize=" << shotFlashSize << "\nshowcrosshairs=" << (showCrosshairs ? 1 : 0) << "\nbloodparticles=" << (bloodParticles ? 1 : 0) << "\nhitmarks=" << (clearMarks ? 1 : 0) << "\ntransparency=" << transparency << "\nnetname=" << netName << "\ndisplay=" << display << "\nnetinfo=" << netInfo << "\nnetstun=" << (netStun ? 1 : 0) << "\nstunservers=" << stunServers << "\nnetpcmode=" << (netPcMode ? 1 : 0) << "\nnetbossmode=" << netBossMode << "\nnetpcchar=" << netPcChar[0] << ',' << netPcChar[1] << "\nsonicmode=" << sonicKey(sonic) << "\nboss4p=" << boss4p << "\nenemy4p=" << enemy4p << "\nteamflash=" << teamFlash << "\ntrailer=" << (trailer ? 1 : 0) << "\nscene4p=" << scene4p
       << "\ncrt=" << crtPresetKey(crt.preset) << "\ncrt.scan=" << crt.scan << "\ncrt.mask=" << crt.mask << "\ncrt.masktype=" << crt.maskType
