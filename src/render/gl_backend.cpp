@@ -413,7 +413,28 @@ void HOTD_APIENTRY esShaderSource(GLuint shader, GLsizei count, const GLchar* co
     for (GLsizei i = 0; i < count; ++i)
         s.append(strings[i], lengths && lengths[i] >= 0 ? size_t(lengths[i]) : std::strlen(strings[i]));
     if (std::getenv("HOTD_GLES_DUMP")) SDL_Log("ES shader:\n%s", shaderToES(s).c_str());
+#if defined(HOTD_IOS)
+    std::string es = shaderToES(s);
+    // ios (docs/ios.md "Depth clamp"): Apple's OpenGL ES has no GL_EXT_depth_clamp, so the near and far planes clipped
+    // what the renderer means to keep (Renderer::draw: "no near clip, as the Model 2"): a wall or window close to the
+    // camera cut open, the background showing through, from frame to frame as the camera moved (both of the player's
+    // A/B tests flickered: not the side strips' cover). Emulated in every vertex shader: the clip-space z kept within
+    // -w..w (in front of the eye), so nothing between the eye and the far plane is clipped by depth; what it costs is
+    // the depth of a polygon crossing the near plane, as the clamp's own. HOTD_IOS_NO_ZCLAMP=1: off (comparisons)
+    static const bool noZClamp = std::getenv("HOTD_IOS_NO_ZCLAMP") != nullptr;
+    GLint type = 0;
+    GetShaderiv(shader, 0x8B4F /* SHADER_TYPE */, &type);
+    if (!gDepthClampExt && !noZClamp && type == 0x8B31 /* VERTEX_SHADER */ && es.find("gl_Position") != std::string::npos) {
+        const size_t m = es.find("void main(");
+        if (m != std::string::npos) {
+            es.replace(m, std::strlen("void main("), "void hotd_vmain(");
+            es += "\nvoid main() {\n    hotd_vmain();\n"
+                  "    if (gl_Position.w > 0.0) gl_Position.z = clamp(gl_Position.z, -gl_Position.w, gl_Position.w);\n}\n";
+        }
+    }
+#else
     const std::string es = shaderToES(s);
+#endif
     const GLchar* p = es.c_str();
     realShaderSource(shader, 1, &p, nullptr);
 }

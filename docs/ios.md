@@ -64,6 +64,15 @@ the GPU at each. On iOS each upload takes the next of a ring of 48 textures (`Hu
 (the FPS counter twice a second) get a new texture for new contents on iOS, the old one deleted (freed once the frames
 in flight are done). The frame's depth / stencil are invalidated before the blit (not stored back on the tile GPU).
 
+**Depth clamp (the edge flicker):** Apple's OpenGL ES has no GL_EXT_depth_clamp ("OpenGL ES: depth clamp
+unavailable" in the log), so the near and far planes clipped what `Renderer::draw` keeps on the PC ("no near clip, as
+the Model 2"): a wall or window near the camera cut open from frame to frame. The player's A/B tests
+(`HOTD_IOS_DIRECT=1`, `HOTD_SIDE_OLD=1`) flickered both, so not the side strips' cover. Emulated in every vertex
+shader on iOS (`esShaderSource`): main wrapped, clip-space z kept within -w..w in front of the eye.
+`HOTD_IOS_NO_ZCLAMP=1`: off. **The 120 Hz ceiling:** with every wait gone a frame's work is 3-4 ms, yet the presents
+stay at exactly 60 a second, the rest of the frame spent in the present's blit: the OpenGL ES layer is shown at 60 Hz
+here (the display link itself runs at 120). 120 would need a Metal presentation (ANGLE's Metal back end).
+
 **Frame rate:** 60 fps by default on iOS (Options > Video > Frame Rate; Display Refresh for 120 where LiveContainer
 lets frames faster than 60 through). The first device test at 120 paced unevenly.
 
