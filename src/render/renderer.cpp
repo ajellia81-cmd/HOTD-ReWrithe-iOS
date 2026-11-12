@@ -1772,7 +1772,16 @@ void Renderer::draw(const std::vector<DrawItem>& items, const Camera& cam, int w
     bool hasSide = false;
     for (const DrawItem& it : items)
         hasSide = hasSide || it.sideOnly;
+#if defined(HOTD_IOS)
+    // ios (docs/ios.md "Frame pacing", the third FPS test): the coverage copy below (CopyTexSubImage2D of the whole
+    // 2868 x 1320 picture in the middle of the frame) took 21-23 ms of the CPU's 26-29 ms a frame on Apple's OpenGL ES
+    // (the GPU ~1 ms): the visfix order there instead, no copy (the side strips' pieces first, the zone over them;
+    // what render5 added: a doorway cut by the picture's edge shows the next room again rather than black).
+    // HOTD_SIDE_COVER=1 (Documents/args.txt: env:HOTD_SIDE_COVER=1): render5's copy as on the PC
+    static const bool sideOld = std::getenv("HOTD_SIDE_OLD") != nullptr || std::getenv("HOTD_SIDE_COVER") == nullptr;
+#else
     static const bool sideOld = std::getenv("HOTD_SIDE_OLD") != nullptr;   // (comparisons: the visfix order, no cover test)
+#endif
     const bool cover = hasSide && !sideOld && !eye;
     auto clearAlpha = [&](float a) {
         gl::ColorMask(gl::FALSE_, gl::FALSE_, gl::FALSE_, gl::TRUE_);

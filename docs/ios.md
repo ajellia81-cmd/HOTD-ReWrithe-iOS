@@ -47,6 +47,12 @@ the next tick. hotd.log every 10 s: `ios: frames: N in 10 s (fps; the display li
 the frame's work avg / max ms; the wait for the display ms` (work near the frame's whole time: the game or a GPU sync is
 the limit; slow frames with a small work: the display side).
 
+**The coverage copy (the frame drops' cause):** the FPS counter's split (`util/frame_prof.h`) showed a frame's CPU
+time almost all in the 3D view, and there in render5's coverage copy (`Renderer::draw`: CopyTexSubImage2D of the
+whole 2868 x 1320 picture in the middle of the frame for the widescreen side strips): 21-23 ms of 26-29 ms, the GPU
+~1 ms. iOS uses the visfix order there instead (no copy); what render5 added (a doorway cut by the picture's edge
+shows black rather than the next room) is lost on iOS. `env:HOTD_SIDE_COVER=1` in `Documents/args.txt` brings it back.
+
 **Frame rate:** 60 fps by default on iOS (Options > Video > Frame Rate; Display Refresh for 120 where LiveContainer
 lets frames faster than 60 through). The first device test at 120 paced unevenly.
 
