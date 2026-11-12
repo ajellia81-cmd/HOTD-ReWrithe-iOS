@@ -2017,7 +2017,10 @@ void GameView::draw(const Runtime& rt, int width, int height, const FrameSnapsho
         drawOverride(items);
         return;
     }
-    renderer.draw(items, camOverride ? *camOverride : cam, width, height, opt);
+    {
+        const prof::Scope ps(prof::kRDraw);   // (ios: the FPS counter's split)
+        renderer.draw(items, camOverride ? *camOverride : cam, width, height, opt);
+    }
 }
 
 void GameView::cameraToWorld(const float* coproCamera, float rot[9], float pos[3])

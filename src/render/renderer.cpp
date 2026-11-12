@@ -1,3 +1,4 @@
+#include "util/frame_prof.h"
 #include "render/renderer.h"
 
 #include "assets/mods.h"
@@ -1786,6 +1787,7 @@ void Renderer::draw(const std::vector<DrawItem>& items, const Camera& cam, int w
     for (int pi = hasSide ? 0 : 1; pi < 2; ++pi) {
     const int phase = phases[pi];
     if (cover && phase == 0) {   // the zone is drawn: its coverage for the pieces
+        const hotd::prof::Scope ps(hotd::prof::kCover);   // (ios: the FPS counter's split)
         if (coverW_ != width || coverH_ != height) {
             gl::ActiveTexture(gl::TEXTURE0 + 9);
             gl::BindTexture(gl::TEXTURE_2D, coverTex_);

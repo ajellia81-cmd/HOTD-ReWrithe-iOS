@@ -16,6 +16,7 @@
 #include <filesystem>
 #include <fstream>
 #include <pthread.h>
+#include <pthread/qos.h>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -176,7 +177,7 @@ struct FrameStats {
 FrameStats gStats, gShown;   // the 10 s log; the counter's half second
 std::string profText(const FrameStats& f)   // the parts' ms a frame
 {
-    static const char* const kName[prof::kSlots] = {"tick", "2d", "view", "skin", "hud", "esbuf"};
+    static const char* const kName[prof::kSlots] = {"tick", "2d", "view", "skin", "hud", "esbuf", "gl", "copy"};
     std::string t;
     char b[32];
     for (int k = 0; k < prof::kSlots; ++k) {
@@ -587,7 +588,12 @@ void afterPresent()
                 f.frames, f.secs(now), double(f.frames) / f.secs(now), displayLinkHz(), f.slow, f.worst, f.cpuSum / f.frames,
                 f.cpuMax, f.gpuSamples ? f.gpuSum / f.gpuSamples : 0.0, f.gpuMax, f.gpuSamples, f.sleepSum / f.frames,
                 f.waitSum / f.frames);
-        SDL_Log("ios: a frame's CPU by part (ms): %s", profText(f).c_str());
+        static const auto qosName = [](qos_class_t q) {
+            return q == QOS_CLASS_USER_INTERACTIVE ? "user-interactive" : q == QOS_CLASS_USER_INITIATED ? "user-initiated"
+                 : q == QOS_CLASS_DEFAULT ? "default" : q == QOS_CLASS_UTILITY ? "utility" : q == QOS_CLASS_BACKGROUND ? "background" : "?";
+        };
+        SDL_Log("ios: a frame's CPU by part (ms): %s; %s; the game thread's QoS %s", profText(f).c_str(),
+                deviceState().c_str(), qosName(qos_class_self()));
         gStats.reset(now);
     }
     if (gShown.presented(now, nullptr)) {

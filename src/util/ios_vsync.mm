@@ -21,6 +21,7 @@
 #include <condition_variable>
 #include <cstdint>
 #include <mutex>
+#include <string>
 
 namespace {
 
@@ -127,6 +128,17 @@ void waitForDisplay()
 double displayLinkHz()
 {
     return gMeasuredHz.load();
+}
+
+std::string deviceState()
+{
+    // the phone's heat (iOS slows the CPU / GPU from "serious" on) and Low Power Mode (slower cores): the same place
+    // ran at different rates in different runs
+    static const char* const kHeat[4] = {"nominal", "fair", "serious", "critical"};
+    const NSInteger t = NSProcessInfo.processInfo.thermalState;
+    std::string s = std::string("heat ") + (t >= 0 && t < 4 ? kHeat[t] : "?");
+    if (NSProcessInfo.processInfo.lowPowerModeEnabled) s += ", Low Power Mode";
+    return s;
 }
 
 } // namespace hotd::ios

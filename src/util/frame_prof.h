@@ -14,6 +14,8 @@ enum Slot {
     kSkins,      // inside the view: the skins rebuilt and sent to the GPU (rebuildSkin + Renderer::updateModel)
     kHud,        // the HUD over it (Hud::draw)
     kEsSub,      // the ES layer: buffer data for the emulated texture buffers (uploads)
+    kRDraw,      // inside the view: Renderer::draw (the GL part: state, the passes' draw calls)
+    kCover,      // inside that: render5's coverage copy (CopyTexSubImage2D of the whole picture mid-frame)
     kSlots
 };
 

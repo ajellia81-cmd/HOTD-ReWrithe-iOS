@@ -65,5 +65,6 @@ unsigned defaultFramebuffer(SDL_Window* window);
 bool setSwapInterval(int interval);
 void waitForDisplay();
 double displayLinkHz();   // the link's measured rate (0: not yet)
+std::string deviceState(); // the heat (thermal state) and Low Power Mode, for the log
 
 } // namespace hotd::ios
