@@ -153,8 +153,8 @@ elseif(IOS)
     # data/ copied into the bundle after the build (before Xcode signs it, when it signs: no PNG crushing of the
     # menus' pictures by the resource phase); the developer tools stay desktop programs
     enable_language(OBJCXX)   # (util/ios_vsync.mm: the display link)
-    add_executable(hotd MACOSX_BUNDLE src/main.cpp src/util/ios_app.cpp src/util/ios_vsync.mm)
-    set_source_files_properties(src/util/ios_vsync.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+    add_executable(hotd MACOSX_BUNDLE src/main.cpp src/util/ios_app.cpp src/util/ios_vsync.mm src/util/ios_metal.mm)
+    set_source_files_properties(src/util/ios_vsync.mm src/util/ios_metal.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
     set(HOTD_IOS_BUNDLE_ID "com.tawhid.hotdrewrithe" CACHE STRING "The iOS app's bundle identifier")
     set(HOTD_IOS_DEPLOYMENT "15.0" CACHE STRING "The oldest iOS the app runs on")
     set_target_properties(hotd PROPERTIES
@@ -178,7 +178,7 @@ elseif(IOS)
             XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "")
     endif()
     target_link_libraries(hotd_flags INTERFACE "-framework OpenGLES" "-framework UIKit" "-framework Foundation"
-        "-framework QuartzCore" "-framework GameController" "-framework AVFoundation" "-framework AudioToolbox")
+        "-framework QuartzCore" "-framework Metal" "-framework CoreVideo" "-framework GameController" "-framework AVFoundation" "-framework AudioToolbox")
     add_custom_command(TARGET hotd POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E remove_directory "$<TARGET_BUNDLE_DIR:hotd>/data"
         COMMAND "${CMAKE_COMMAND}" -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/data" "$<TARGET_BUNDLE_DIR:hotd>/data"

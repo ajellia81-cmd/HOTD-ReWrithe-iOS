@@ -36,7 +36,8 @@ SDL_GLContextState* createContext(SDL_Window*& window, int backend, std::string&
 bool isES();                   // the context is OpenGL ES (ANGLE)
 #if defined(HOTD_IOS)
 // ios (docs/ios.md): before every present: the frame (drawn into a texture of ours) blitted into SDL's UIKit view
-void iosPresent(int w, int h);
+void iosPresent(int w, int h, unsigned target = 0);   // target: a framebuffer of ours (the Metal present: flipped), 0 = the view's
+bool iosSceneReady();   // the frame is in our texture (iosPresent can blit it)
 unsigned iosViewFbo();   // SDL's UIKit view's framebuffer (a drawable: nothing of ours is attached to it)
 #endif
 std::string backendInUse();    // "OpenGL" / "DirectX 11 (ANGLE)" / "DirectX 9 (ANGLE)" (empty before a context)

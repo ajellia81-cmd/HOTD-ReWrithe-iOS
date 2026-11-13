@@ -75,7 +75,11 @@ the rounding to 24-bit steps to make two polygons with one key tie exactly, so o
 pixel (a window and the wall behind it in turn). iOS writes the keys per pixel instead (`gl_FragDepth`, the depthcmp
 path); `HOTD_IOS_EARLYZ=1`: as on the PC. **The 120 Hz ceiling:** with every wait gone a frame's work is 3-4 ms, yet the presents
 stay at exactly 60 a second, the rest of the frame spent in the present's blit: the OpenGL ES layer is shown at 60 Hz
-here (the display link itself runs at 120). 120 would need a Metal presentation (ANGLE's Metal back end).
+here (the display link itself runs at 120). **120 Hz (`util/ios_metal.mm`):** the frame still drawn by OpenGL ES into our texture, then blitted (flipped) into
+one of three IOSurfaces that OpenGL ES and Metal share; a fence, the display link's tick, and Metal copies the surface
+into a CAMetalLayer's drawable (a view over SDL's, no touches) and presents it, SDL_GL_SwapWindow skipped. CAMetalLayer
+runs at the display's whole rate. Nothing for Metal (no device, no texture cache): the OpenGL ES present at 60 as before;
+`HOTD_IOS_GLPRESENT=1` the same (comparisons). The log: "ios: frames shown by Metal".
 
 **Frame rate:** 60 fps by default on iOS (Options > Video > Frame Rate; Display Refresh for 120 where LiveContainer
 lets frames faster than 60 through). The first device test at 120 paced unevenly.

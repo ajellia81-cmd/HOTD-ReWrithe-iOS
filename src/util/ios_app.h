@@ -57,6 +57,15 @@ void afterPresent();
 // the game's frame limiter's sleep (main.cpp's SDL_DelayPrecise on iOS): slept, and counted apart from the frame's work
 void delayPrecise(unsigned long long ns);
 
+// the Metal present (util/ios_metal.mm, docs/ios.md "120 Hz"): the next of its surfaces' framebuffers (0: none, the
+// OpenGL ES present), then after the frame is blitted there: metalFrameDrawn (a fence), metalWaitGpu (OpenGL ES done:
+// its ms, -1 none), metalPresent (Metal shows it; true: SDL_GL_SwapWindow is skipped)
+unsigned metalTarget(SDL_Window* window, int w, int h);
+void metalFrameDrawn();
+double metalWaitGpu();
+bool metalPresent();
+bool presentedByMetal();   // the last beforePresent's frame went out through Metal (main.cpp: no SDL swap)
+
 // the OpenGL ES framebuffer SDL's UIKit view draws into (iOS has no window framebuffer 0)
 unsigned defaultFramebuffer(SDL_Window* window);
 

@@ -1177,6 +1177,9 @@ static void vrSwap(SDL_Window* window)
         return;
     }
 #endif
+#if defined(HOTD_IOS)
+    if (!hotd::ios::presentedByMetal())   // (120 Hz: Metal showed the frame, util/ios_metal.mm)
+#endif
     SDL_GL_SwapWindow(window);
 #if defined(HOTD_IOS)
     hotd::ios::afterPresent();   // (the frame-time statistics)

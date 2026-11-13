@@ -543,6 +543,9 @@ void setInGame(bool inGame)
     gInGame = inGame;
 }
 
+static bool gMetalPresented = false;
+bool presentedByMetal() { return gMetalPresented; }
+
 bool beforePresent(SDL_Window* window)
 {
     if (gWindow != window) gWindow = window;
@@ -557,12 +560,29 @@ bool beforePresent(SDL_Window* window)
     // presented instead of the screen's, and the screen keeps its last good frame (the first device test: the SEGA
     // logo stayed while the attract ran behind it). The view's colour renderbuffer, bound before every present
     // the frame (drawn into a texture of ours: gl_backend's iOS target) into the view's framebuffer
+    unsigned metalFbo = 0;
     {
         int pw = 0, ph = 0;
         if (window) SDL_GetWindowSizeInPixels(window, &pw, &ph);
         const prof::Scope ps(prof::kBlit);
-        gl::iosPresent(pw, ph);
+        // 120 Hz (util/ios_metal.mm): the frame into a surface Metal shows, once our texture has one
+        if (gl::iosSceneReady()) metalFbo = metalTarget(window, pw, ph);
+        gl::iosPresent(pw, ph, metalFbo);
     }
+    if (metalFbo) {
+        // the Metal present: the fence, OpenGL ES's work done (the counter's "gpu" every frame), the display's tick,
+        // then Metal's copy into its drawable and its present (CAMetalLayer: the display's whole rate)
+        metalFrameDrawn();
+        const Uint64 workEnd = SDL_GetTicksNS();
+        const double gpuMs = metalWaitGpu();
+        waitForDisplay();
+        const Uint64 afterWait = SDL_GetTicksNS();
+        gMetalPresented = metalPresent();
+        gStats.work(workEnd, afterWait, gpuMs);
+        gShown.work(workEnd, afterWait, gpuMs);
+        return !gTerminating;
+    }
+    gMetalPresented = false;
     static gl::GLuint viewRb = 0;
     if (!viewRb && window)
         viewRb = gl::GLuint(SDL_GetNumberProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_UIKIT_OPENGL_RENDERBUFFER_NUMBER, 0));

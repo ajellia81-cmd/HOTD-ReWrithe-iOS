@@ -738,7 +738,9 @@ unsigned iosViewFbo() { return gIosViewFbo; }
 
 // ios: the frame's target (gIosSceneFbo above) made or resized to the drawable's size, then the finished frame blitted
 // into the view's framebuffer; "0" stays the scene's afterwards
-void iosPresent(int w, int h)
+bool iosSceneReady() { return gIosSceneFbo && !gIosSceneOff; }
+
+void iosPresent(int w, int h, unsigned target)
 {
     if (!gIosViewFbo || w <= 0 || h <= 0) return;
     constexpr GLenum kRead = 0x8CA8, kDraw = 0x8CA9, kD24S8 = 0x88F0, kDepthStencil = 0x821A, kComplete = 0x8CD5;
@@ -753,8 +755,10 @@ void iosPresent(int w, int h)
             invalidate(FRAMEBUFFER, 1, ds);
         }
         realBindFramebuffer(kRead, gIosSceneFbo);
-        realBindFramebuffer(kDraw, gIosViewFbo);
-        BlitFramebuffer(0, 0, gIosSceneW, gIosSceneH, 0, 0, w, h, COLOR_BUFFER_BIT, NEAREST);
+        realBindFramebuffer(kDraw, target ? GLuint(target) : gIosViewFbo);
+        // (the Metal present's surface: its first row the screen's top, OpenGL's bottom: flipped)
+        if (target) BlitFramebuffer(0, 0, gIosSceneW, gIosSceneH, 0, h, w, 0, COLOR_BUFFER_BIT, NEAREST);
+        else BlitFramebuffer(0, 0, gIosSceneW, gIosSceneH, 0, 0, w, h, COLOR_BUFFER_BIT, NEAREST);
         realBindFramebuffer(FRAMEBUFFER, gIosViewFbo);   // (SDL's present: its own framebuffer bound)
     }
     if (gIosSceneOff || (gIosSceneFbo && gIosSceneW == w && gIosSceneH == h)) {
