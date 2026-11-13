@@ -49,12 +49,19 @@ static void questRows(std::vector<Frontend::Extra>& r)
     // resolution and refresh (OpenGL ES always), the files live in the app's Documents folder (the Files app, not the
     // setup's file boxes), a sideloaded app has no update check, no desktop or Steam; the touch has no "off the screen"
     // (RELOAD button / a second finger instead)
+    // (the player 2026-11-13, the rows that do nothing on a phone: the light guns, the mice, the inputs (player 1
+    // takes the touch and a pad at once), Vsync (always the display's), The Typing of the Dead 0 and Trailer Mode (a
+    // keyboard), Online Co-op)
     static const char* const kIosHidden[] = {
-        "Display Mode", "Display", "Resolution", "Renderer", "VRR (G-Sync / FreeSync)",
-        "Edge Reload",
+        "Display Mode", "Display", "Resolution", "Renderer", "VRR (G-Sync / FreeSync)", "Vsync",
+        "Edge Reload", "Typing of the Dead 0", "Trailer Mode", "Online Co-op",
+        "Light Guns", "Light Gun Type", "Shot Flash", "Gun Border", "Calibrate Light Guns",
+        "Player 1 Input", "Player 2 Input",
         "Repair / Change Files", "Check for Updates", "Desktop Shortcut", "Add to Steam"};
+    static const char* const kIosHiddenStart[] = {"Light Gun: Player ", "Mouse Sensitivity: Player ", "Player 3 Input", "Player 4 Input"};
     r.erase(std::remove_if(r.begin(), r.end(), [](const Frontend::Extra& e) {
-                return std::find_if(std::begin(kIosHidden), std::end(kIosHidden), [&e](const char* s) { return e.name == s; }) != std::end(kIosHidden);
+                return std::find_if(std::begin(kIosHidden), std::end(kIosHidden), [&e](const char* s) { return e.name == s; }) != std::end(kIosHidden) ||
+                       std::find_if(std::begin(kIosHiddenStart), std::end(kIosHiddenStart), [&e](const char* s) { return e.name.rfind(s, 0) == 0; }) != std::end(kIosHiddenStart);
             }), r.end());
 #endif
     if (!menuQuest)
@@ -1647,6 +1654,9 @@ std::vector<Frontend::Extra> menuCoopRows(LaunchConfig& c, const MenuHooks& h)
         listed(r, {"Human", "CPU Easy", "CPU Normal", "CPU Hard", "CPU Expert"});
         if (p >= 2) experimental(r);
     }
+#if defined(HOTD_IOS)
+    questRows(r);   // (ios: Online Co-op)
+#endif
     return r;
 }
 

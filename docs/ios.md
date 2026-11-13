@@ -98,8 +98,11 @@ lets frames faster than 60 through). The first device test at 120 paced unevenly
 - **The background:** iOS ends an app that draws while in the background. When the app leaves the foreground the
   queued GL work is finished and the next frame waits (events pumped, nothing drawn) until it is back
   (`ios::beforePresent`); the game loop drops the stall instead of fast-forwarding (as after a Steam Deck suspend).
-- **Left out of Options:** Display Mode, Display, Resolution, Renderer, VRR, Edge Reload (a finger cannot leave the
-  screen), Repair / Change Files (the Files app instead), Check for Updates, Desktop Shortcut, Add to Steam.
+- **Left out of Options:** Display Mode, Display, Resolution, Renderer, VRR, Vsync (always the display's), Edge Reload
+  (a finger cannot leave the screen), the light guns' rows, Mouse Sensitivity, Player 1-4 Input (player 1 takes the
+  touch and a pad at once), The Typing of the Dead 0 and Trailer Mode (a keyboard), Online Co-op, Repair / Change
+  Files (the Files app instead), Check for Updates, Desktop Shortcut, Add to Steam. The pad's crosshair speed: Controls
+  > Controller: Player 1 > Stick Sensitivity.
 - **Not on iOS:** the update check (a sideloaded app), text-to-speech (no programs to start), the developer tools.
 - **Files:** settings, scores and the log in `Documents/settings` (so the Files app shows them); the game's own
   `data/` (fonts, menu pictures, languages, mods) copied from the app into `Library/Application Support/rewrithe` on
