@@ -2,7 +2,8 @@
 // UIKit view) is shown at 60 Hz at most on the iPhone's ProMotion screen: with a frame's work at 3-4 ms and the display
 // link at 120 the presents stayed at exactly 60 a second. The game still draws with OpenGL ES (its frame in a texture
 // of ours, gl_backend's iosPresent); here that frame is blitted into one of three IOSurfaces shared by OpenGL ES and
-// Metal, and Metal copies it into a CAMetalLayer's drawable over SDL's view and presents it (CAMetalLayer: the
+// Metal, and Metal copies it into a CAMetalLayer's drawable over SDL's view and presents it (on a queue of its own once
+// the GPU is done: below) (CAMetalLayer: the
 // display's full rate). SDL_GL_SwapWindow is skipped then (main.cpp vrSwap). Anything missing (no Metal, a texture
 // cache that cannot be made): the OpenGL ES present as before. HOTD_IOS_GLPRESENT=1: the old present (comparisons).
 #include "util/ios_app.h"
@@ -18,6 +19,7 @@
 
 #include <SDL3/SDL.h>
 
+#include <atomic>
 #include <cstdlib>
 
 @interface HotdMetalView : UIView
@@ -51,8 +53,15 @@ CVMetalTextureCacheRef gMtlCache = nullptr;
 dispatch_semaphore_t gInFlight = nullptr;
 Slot gSlot[kSlots];
 int gW = 0, gH = 0, gCur = 0;
-GLsync gFence = nullptr;
-bool gPending = false;   // a slot drawn, waiting for metalPresent
+bool gPending = false;   // a slot handed out, waiting for metalFrameDrawn
+// the present's own queue (2026-11-13, the first 120 Hz test: frames dropped while "gpu" was 6-10 ms): the game's
+// thread waited for OpenGL ES's GPU work before every present, so a frame took its CPU time plus its GPU time, one
+// after the other. Now the wait and Metal's copy and present run on this queue (a second OpenGL ES context in the same
+// share group waits for the frame's fence), and the game's thread goes on with the next frame while the GPU works
+dispatch_queue_t gPresentQ = nullptr;
+EAGLContext* gWaitCtx = nil;
+std::atomic<double> gGpuSum{0};
+std::atomic<int> gGpuN{0};
 
 void freeSlots()
 {
@@ -145,6 +154,13 @@ bool start(SDL_Window* window)
     if (@available(iOS 11.2, *)) gLayer.maximumDrawableCount = 3;
     [host addSubview:gView];
     gInFlight = dispatch_semaphore_create(kSlots);
+    gWaitCtx = [[EAGLContext alloc] initWithAPI:ctx.API sharegroup:ctx.sharegroup];
+    gPresentQ = dispatch_queue_create("hotd present",
+        dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_USER_INTERACTIVE, 0));
+    if (!gWaitCtx) {
+        SDL_Log("ios: no second OpenGL ES context for the Metal present: OpenGL ES's (60 Hz)");
+        return false;
+    }
     SDL_Log("ios: frames shown by Metal (CAMetalLayer, up to %d Hz)", int(uiWindow.screen.maximumFramesPerSecond));
     return true;
 }
@@ -176,45 +192,47 @@ unsigned metalTarget(SDL_Window* window, int w, int h)
     return gSlot[gCur].fbo;
 }
 
-void metalFrameDrawn()
-{
-    if (!gPending) return;
-    if (gFence) glDeleteSync(gFence);
-    gFence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-    glFlush();
-}
-
-double metalWaitGpu()
-{
-    if (!gPending || !gFence) return -1;
-    const Uint64 t0 = SDL_GetTicksNS();
-    glClientWaitSync(gFence, GL_SYNC_FLUSH_COMMANDS_BIT, 100000000ull);   // (OpenGL ES done with the surface)
-    glDeleteSync(gFence);
-    gFence = nullptr;
-    return double(SDL_GetTicksNS() - t0) * 1e-6;
-}
-
-bool metalPresent()
+bool metalFrameDrawn()
 {
     if (!gPending) return false;
     gPending = false;
-    @autoreleasepool {
-        id<CAMetalDrawable> d = [gLayer nextDrawable];
-        id<MTLCommandBuffer> cmd = [gQueue commandBuffer];
-        if (d && d.texture.width == size_t(gW) && d.texture.height == size_t(gH)) {
-            id<MTLBlitCommandEncoder> blit = [cmd blitCommandEncoder];
-            [blit copyFromTexture:CVMetalTextureGetTexture(gSlot[gCur].mtlTex) sourceSlice:0 sourceLevel:0
-                     sourceOrigin:MTLOriginMake(0, 0, 0) sourceSize:MTLSizeMake(size_t(gW), size_t(gH), 1)
-                        toTexture:d.texture destinationSlice:0 destinationLevel:0
-                destinationOrigin:MTLOriginMake(0, 0, 0)];
-            [blit endEncoding];
-            [cmd presentDrawable:d];
+    GLsync fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+    glFlush();   // (the frame's commands to the GPU: the fence can signal)
+    const int slot = gCur;
+    const Uint64 t0 = SDL_GetTicksNS();
+    dispatch_async(gPresentQ, ^{
+        @autoreleasepool {
+            if ([EAGLContext currentContext] != gWaitCtx) [EAGLContext setCurrentContext:gWaitCtx];
+            if (fence) {
+                glClientWaitSync(fence, 0, 200000000ull);   // (OpenGL ES done with the surface)
+                glDeleteSync(fence);
+            }
+            gGpuSum = gGpuSum.load() + double(SDL_GetTicksNS() - t0) * 1e-6;
+            ++gGpuN;
+            id<CAMetalDrawable> d = [gLayer nextDrawable];
+            id<MTLCommandBuffer> cmd = [gQueue commandBuffer];
+            if (d && d.texture.width == size_t(gW) && d.texture.height == size_t(gH)) {
+                id<MTLBlitCommandEncoder> blit = [cmd blitCommandEncoder];
+                [blit copyFromTexture:CVMetalTextureGetTexture(gSlot[slot].mtlTex) sourceSlice:0 sourceLevel:0
+                         sourceOrigin:MTLOriginMake(0, 0, 0) sourceSize:MTLSizeMake(size_t(gW), size_t(gH), 1)
+                            toTexture:d.texture destinationSlice:0 destinationLevel:0
+                    destinationOrigin:MTLOriginMake(0, 0, 0)];
+                [blit endEncoding];
+                [cmd presentDrawable:d];
+            }
+            dispatch_semaphore_t sem = gInFlight;
+            [cmd addCompletedHandler:^(id<MTLCommandBuffer>) { dispatch_semaphore_signal(sem); }];
+            [cmd commit];
         }
-        dispatch_semaphore_t sem = gInFlight;
-        [cmd addCompletedHandler:^(id<MTLCommandBuffer>) { dispatch_semaphore_signal(sem); }];
-        [cmd commit];
-    }
+    });
     return true;
+}
+
+double metalGpuMs()
+{
+    const int n = gGpuN.exchange(0);
+    const double sum = gGpuSum.exchange(0);
+    return n > 0 ? sum / n : -1;
 }
 
 } // namespace hotd::ios

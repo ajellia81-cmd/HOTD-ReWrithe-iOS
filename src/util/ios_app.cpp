@@ -158,6 +158,10 @@ struct FrameStats {
         if (gpuMs >= 0) gpuSum += gpuMs, gpuMax = std::max(gpuMax, gpuMs), ++gpuSamples;
         sleepNs = 0;
     }
+    void gpu(double ms)   // (the Metal present: the GPU's time measured apart from the game thread's)
+    {
+        if (ms >= 0) gpuSum += ms, gpuMax = std::max(gpuMax, ms), ++gpuSamples;
+    }
     bool presented(Uint64 now, const char* what)   // true: a window's numbers ready (fps etc. below)
     {
         for (int k = 0; k < prof::kSlots; ++k) prof[k] += gFrameProf[k];
@@ -570,16 +574,15 @@ bool beforePresent(SDL_Window* window)
         gl::iosPresent(pw, ph, metalFbo);
     }
     if (metalFbo) {
-        // the Metal present: the fence, OpenGL ES's work done (the counter's "gpu" every frame), the display's tick,
-        // then Metal's copy into its drawable and its present (CAMetalLayer: the display's whole rate)
-        metalFrameDrawn();
+        // the Metal present: the fence, and the GPU's wait, Metal's copy and present on the present's queue while
+        // this thread waits for the display's tick and goes on with the next frame
+        gMetalPresented = metalFrameDrawn();
         const Uint64 workEnd = SDL_GetTicksNS();
-        const double gpuMs = metalWaitGpu();
         waitForDisplay();
         const Uint64 afterWait = SDL_GetTicksNS();
-        gMetalPresented = metalPresent();
-        gStats.work(workEnd, afterWait, gpuMs);
-        gShown.work(workEnd, afterWait, gpuMs);
+        const double gpuMs = metalGpuMs();   // (measured on the present's queue, beside the game's thread)
+        gStats.work(workEnd, afterWait, -1), gStats.gpu(gpuMs);
+        gShown.work(workEnd, afterWait, -1), gShown.gpu(gpuMs);
         return !gTerminating;
     }
     gMetalPresented = false;

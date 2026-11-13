@@ -58,12 +58,12 @@ void afterPresent();
 void delayPrecise(unsigned long long ns);
 
 // the Metal present (util/ios_metal.mm, docs/ios.md "120 Hz"): the next of its surfaces' framebuffers (0: none, the
-// OpenGL ES present), then after the frame is blitted there: metalFrameDrawn (a fence), metalWaitGpu (OpenGL ES done:
-// its ms, -1 none), metalPresent (Metal shows it; true: SDL_GL_SwapWindow is skipped)
+// OpenGL ES present), then after the frame is blitted there metalFrameDrawn (a fence; the GPU's wait, Metal's copy and
+// present on a queue of their own; true: presented that way, SDL_GL_SwapWindow skipped); metalGpuMs: the frames' GPU
+// time on average since the last call (-1: none)
 unsigned metalTarget(SDL_Window* window, int w, int h);
-void metalFrameDrawn();
-double metalWaitGpu();
-bool metalPresent();
+bool metalFrameDrawn();
+double metalGpuMs();
 bool presentedByMetal();   // the last beforePresent's frame went out through Metal (main.cpp: no SDL swap)
 
 // the OpenGL ES framebuffer SDL's UIKit view draws into (iOS has no window framebuffer 0)
