@@ -2114,7 +2114,13 @@ void Hud::drawPause(int selection, int ww, int wh)
         std::vector<std::string> t = {L[0], ""};
         for (int i = 0; i < items; ++i)
             t.push_back(i == selection ? "> " + lang::tr(L[size_t(i) + 1]) + " <" : L[size_t(i) + 1]);
+#if defined(HOTD_IOS)
+        // ios (the player 2026-11-13: in Korean the pause was tiny): a phone's 1320 lines at the PC's 3 made its lines
+        // a quarter of the PC sprites' size; as large as those (an item 24 of the 480 lines), the PC's 3 the least
+        const int S = std::max(wh >= 720 && ww >= 1280 ? 3 : 2, int(float(wh) / 220.0f + 0.5f));
+#else
         const int S = wh >= 720 && ww >= 1280 ? 3 : 2;
+#endif
         pause_.setText(t, S);
         pause_.drawAt(ww, wh, ww * 0.5f, wh * 0.5f);
         // (Overlay's 8 x 8 lines: 6 S padding, 11 S a line, centred on the window; in 640 x 480 units of its height)

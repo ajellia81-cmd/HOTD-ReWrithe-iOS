@@ -219,6 +219,8 @@ For a G-Sync / FreeSync display: each game frame shown once at the game's own ra
 Off while VRR is On = VRR이 켜져 있는 동안 꺼짐
 The game's own rate while VRR is On = VRR이 켜져 있는 동안 게임 고유의 속도
 Hit Sparks = 타격 불꽃
+Show FPS = FPS 표시
+The frame rate and the frame's time (CPU / GPU) at the top right = 화면 오른쪽 위에 프레임 레이트와 프레임 시간(CPU / GPU) 표시
 The bright spark bursts where your bullets hit (draw only; the game itself is unchanged) = 총알이 맞은 곳의 밝은 불꽃 (그리기만; 게임 자체는 그대로)
 Gun Muzzle Flash = 총구 섬광
 The flash on the guns of Rogan and G when they fire in the cut-scenes (draw only) = 컷신에서 로건과 G가 쏠 때 총의 섬광 (그리기만)
