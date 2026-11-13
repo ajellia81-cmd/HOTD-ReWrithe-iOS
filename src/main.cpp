@@ -4974,6 +4974,14 @@ int main(int argc, char* argv[])
             return rc;
     }
 #endif
+#if defined(HOTD_IOS)
+    // ios (the player 2026-11-13: Quit in the main menu left a black screen): SDL's UIKit app keeps running after
+    // SDL_main returns (for apps that only set up there). Ours is done then: the process ends, after every other
+    // local of main (declared first: destroyed last). Under LiveContainer that closes it as well
+    struct IosExit {
+        ~IosExit() { std::exit(0); }
+    } iosExit;
+#endif
     const ExitJoin exitJoin;   // fix5: the view prefetch's worker finished before any return (see ViewPrefetch::finish)
 #if defined(__ANDROID__)
     // quest (docs/quest.md): SDLActivity passes no arguments: the Quest's own (--root, --vr openxr, the game files from

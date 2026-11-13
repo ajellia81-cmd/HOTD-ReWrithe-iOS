@@ -103,6 +103,8 @@ lets frames faster than 60 through). The first device test at 120 paced unevenly
   touch and a pad at once), The Typing of the Dead 0 and Trailer Mode (a keyboard), Online Co-op, Repair / Change
   Files (the Files app instead), Check for Updates, Desktop Shortcut, Add to Steam. The pad's crosshair speed: Controls
   > Controller: Player 1 > Stick Sensitivity.
+- **Quit** (the main menu): the app closes (SDL's UIKit app would stay on a black screen after the game's main
+  returns; `std::exit` after main's locals).
 - **Not on iOS:** the update check (a sideloaded app), text-to-speech (no programs to start), the developer tools.
 - **Files:** settings, scores and the log in `Documents/settings` (so the Files app shows them); the game's own
   `data/` (fonts, menu pictures, languages, mods) copied from the app into `Library/Application Support/rewrithe` on
