@@ -375,9 +375,11 @@ void drawButtons(SDL_Window* window)
     esc.drawAnchored(pw, ph, (e.x + e.w * 0.45f) * k, (e.y + e.h * 0.45f) * k, 0.5f, 0.5f);
 }
 
-// the FPS counter (temporary, the "frame drops" test): top right inside the safe area, over everything, pad or not
+// the FPS counter (Options > Video > Show FPS): top right inside the safe area, over everything, pad or not
+bool gShowFps = false;
 void drawFps(SDL_Window* window)
 {
+    if (!gShowFps) return;
     static Overlay fps;
     static int ready = -1;
     if (ready < 0) {
@@ -545,6 +547,12 @@ void installAppEvents(SDL_Window* window)
 void setInGame(bool inGame)
 {
     gInGame = inGame;
+}
+
+void setShowFps(bool on)
+{
+    if (on && !gShowFps) gFpsChanged = true;   // (the last numbers drawn again at once)
+    gShowFps = on;
 }
 
 static bool gMetalPresented = false;

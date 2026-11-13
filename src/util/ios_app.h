@@ -51,6 +51,9 @@ void setInGame(bool inGame);
 // false: the system is ending the app
 bool beforePresent(SDL_Window* window);
 
+// the FPS counter shown or not (Options > Video > Show FPS; off by default)
+void setShowFps(bool on);
+
 // right after the present: the frame-time statistics (hotd.log every 10 s: "ios: frames ...") and the FPS counter
 void afterPresent();
 

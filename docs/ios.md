@@ -81,7 +81,8 @@ into a CAMetalLayer's drawable (a view over SDL's, no touches) and presents it, 
 runs at the display's whole rate. Nothing for Metal (no device, no texture cache): the OpenGL ES present at 60 as before;
 `HOTD_IOS_GLPRESENT=1` the same (comparisons). The log: "ios: frames shown by Metal".
 
-**Frame rate:** 60 fps by default on iOS (Options > Video > Frame Rate; Display Refresh for 120 where LiveContainer
+**Show FPS** (Options > Video, iOS only, off by default): the frame-time counter at the top right (fps, the
+frame's ms, CPU / GPU, the CPU by part). **Frame rate:** 60 fps by default on iOS (Options > Video > Frame Rate; Display Refresh for 120 where LiveContainer
 lets frames faster than 60 through). The first device test at 120 paced unevenly.
 
 ## What is different on iOS

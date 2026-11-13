@@ -409,6 +409,7 @@ struct LaunchConfig {
     // (launcher.ini iosrate=1), so a choice made afterwards stays
     int frameRate = 60;
     int iosRate = 0;   // (1: the 60 default applied once; the player's own choice since stays, 120 included)
+    bool iosFps = false;   // ios: Options > Video > Show FPS (the frame-time counter, top right; launcher.ini iosfps=)
 #else
     int frameRate = 0;
 #endif

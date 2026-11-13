@@ -6009,6 +6009,9 @@ int main(int argc, char* argv[])
     if (gClearMarksOpt >= 0) cfg.clearMarks = gClearMarksOpt != 0;
     if (gBossNamesOpt >= 0) cfg.bossCodenames = gBossNamesOpt != 0;
     if (gShowCrossOpt >= 0) cfg.showCrosshairs = gShowCrossOpt != 0;   // (gunfb)
+#if defined(HOTD_IOS)
+    hotd::ios::setShowFps(cfg.iosFps);   // (Options > Video > Show FPS)
+#endif
     if (gFlashSizeOpt >= 0) cfg.shotFlashSize = gFlashSizeOpt;
     if (gTranspOpt >= 0) cfg.transparency = gTranspOpt;
     if (gameTextOpt >= 0) cfg.gameText = gameTextOpt;

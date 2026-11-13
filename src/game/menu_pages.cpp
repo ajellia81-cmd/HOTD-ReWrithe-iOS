@@ -11,6 +11,9 @@
 #include "render/bidi.h"
 #include "render/crt.h"
 #include "render/gamma.h"
+#if defined(HOTD_IOS)
+#include "util/ios_app.h"   // (Show FPS)
+#endif
 #include "render/gl_backend.h"
 #include "render/renderer.h"
 #include "util/png_read.h"
@@ -548,6 +551,12 @@ std::vector<Frontend::Extra> menuCategoryRows(int category, LaunchConfig& c, con
                      [&c, save]() { c.vrr = !c.vrr; save(); },
                      "For a G-Sync / FreeSync display: each game frame shown once at the game's own rate (57.5 or 60 Hz). "
                      "Vsync and Smooth Motion off; Borderless covers the display exactly (screen recorders: capture the display, not the window)"});
+#if defined(HOTD_IOS)
+        // ios (docs/ios.md): the frame-time counter (top right: fps, the frame's ms, CPU / GPU), off by default
+        r.push_back({"Show FPS", [&c]() { return onOff(c.iosFps); },
+                     [&c, save]() { c.iosFps = !c.iosFps; hotd::ios::setShowFps(c.iosFps); save(); },
+                     "The frame rate and the frame's time (CPU / GPU) at the top right"});
+#endif
         r.push_back({"Hit Sparks", [&c]() { return onOff(c.hitSparks); },
                      [&c, save]() { c.hitSparks = !c.hitSparks; save(); },
                      "The bright spark bursts where your bullets hit (draw only; the game itself is unchanged)"});
