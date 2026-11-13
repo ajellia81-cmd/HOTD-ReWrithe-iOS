@@ -13944,6 +13944,14 @@ int main(int argc, char* argv[])
             // the PC port's front end: the window's input -> FrontendInput (the 640 x 480 picture fitted to the
             // window's height, centred: the mouse mapped through the same rectangle)
             game::FrontendInput in;
+#if defined(HOTD_IOS)
+            // ios (the player 2026-11-13: "a tap in the menu does not bring the hand there; it follows only a finger
+            // dragged"): a touch's press comes with no motion before it, and the front end keeps the pointer still on a
+            // press's frame (Frontend: clickState_), so the hand stayed and the press acted where it was. A touch's
+            // press: the pointer to the finger this frame, the press the next (tapPressNext)
+            static bool tapPressNext = false;
+            if (tapPressNext) in.press = in.anyKey = in.click = true, tapPressNext = false;
+#endif
             // pmfix2: the PC Mode extras' portraits (game/pm_portraits.h): from the settings folder, else made once from
             // the player's files (one character a menu frame, before the frame is drawn: the Gallery's renderer draws
             // in the window's corner and reads it back), then kept there. pmpick: per model set (Video > Models: the
@@ -14535,6 +14543,16 @@ int main(int argc, char* argv[])
                     if (e.key.key == SDLK_ESCAPE) in.escape = true;
                     else if (e.key.key == SDLK_RETURN || e.key.key == SDLK_KP_ENTER || e.key.key == SDLK_SPACE) in.press = true;
                 } else if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN && e.button.button == SDL_BUTTON_LEFT) {
+#if defined(HOTD_IOS)
+                    if (e.button.which == SDL_TOUCH_MOUSEID) {
+                        float mx = e.button.x, my = e.button.y;
+                        gCrt.toSource(mx, my, lw, lh);
+                        in.mouseMoved = true;
+                        in.mouseX = int((mx - fx0) / sc), in.mouseY = int((my - fy0) / sc);
+                        fe.hideHand = false, fe.handAlpha = 1.0f;
+                        tapPressNext = true;
+                    } else
+#endif
                     in.press = in.anyKey = in.click = true;
                     feLeftHeld = true;
                 } else if (e.type == SDL_EVENT_MOUSE_BUTTON_UP && e.button.button == SDL_BUTTON_LEFT) {
