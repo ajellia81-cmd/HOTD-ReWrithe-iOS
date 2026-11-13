@@ -55,6 +55,14 @@ const std::pair<uint32_t, int> kCueMap[] = {
 #include "game/cue_map.inc"
 };
 
+namespace {
+// ios: the open outputs (Audio::backgroundAll); the player 2026-11-13: in the background the menus' music played on
+std::mutex gOpenMu;
+std::set<SDL_AudioStream*> gOpen;
+bool gInBackground = false;
+} // namespace
+
+
 bool readFile(const std::string& path, std::vector<uint8_t>& out)
 {
     return pcfs::readFile(path, out);   // a file of the PC folder, or inside the PC zip
@@ -714,13 +722,6 @@ void Audio::closeWav()
     std::fclose(wav_);
     wav_ = nullptr;
 }
-
-namespace {
-// ios: the open outputs (Audio::backgroundAll); the player 2026-11-13: in the background the menus' music played on
-std::mutex gOpenMu;
-std::set<SDL_AudioStream*> gOpen;
-bool gInBackground = false;
-} // namespace
 
 void Audio::backgroundAll(bool background)
 {
