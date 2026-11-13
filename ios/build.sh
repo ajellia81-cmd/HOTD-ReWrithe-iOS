@@ -72,10 +72,12 @@ app="$(find "$BUILD" -type d -name 'HOTDReWrithe.app' -path '*Release-iphoneos*'
 [[ -n "$app" ]] || { echo "build/ios: HOTDReWrithe.app not found" >&2; exit 1; }
 ver="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Info.plist")"
 
-# the icon: the game's own neutral icon (src/res/hotd.ico, never SEGA's) as the iPhone / iPad home screen sizes
+# the icon: ios/AppIcon.png (the player's choice, 1024 x 1024) when there, else the game's own neutral icon
+# (src/res/hotd.ico), as the iPhone / iPad home screen sizes
 if command -v sips > /dev/null; then
     tmp="$(mktemp -d)"
-    if sips -s format png "$SRC/src/res/hotd.ico" --out "$tmp/icon.png" > /dev/null 2>&1; then
+    if [[ -f "$SRC/ios/AppIcon.png" ]] && cp "$SRC/ios/AppIcon.png" "$tmp/icon.png" ||
+       sips -s format png "$SRC/src/res/hotd.ico" --out "$tmp/icon.png" > /dev/null 2>&1; then
         for s in "AppIcon60x60@2x:120" "AppIcon60x60@3x:180" "AppIcon76x76@2x~ipad:152" "AppIcon83.5x83.5@2x~ipad:167"; do
             sips -z "${s##*:}" "${s##*:}" "$tmp/icon.png" --out "$app/${s%%:*}.png" > /dev/null
         done
