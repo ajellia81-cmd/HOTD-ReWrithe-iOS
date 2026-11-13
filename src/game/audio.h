@@ -33,6 +33,10 @@ namespace hotd::game {
 
 class Audio {
 public:
+    // ios (docs/ios.md "The background"): every open output paused while the app is in the background (true), resumed
+    // when it is back (false); util/ios_app.cpp's event filter. Elsewhere it does nothing
+    static void backgroundAll(bool background);
+public:
     Audio();
     ~Audio();
     // pcRoot: the PC game's folder (THOTD.EXE, SOUND\, Music\); device false: no audio device (headless runs: the cues

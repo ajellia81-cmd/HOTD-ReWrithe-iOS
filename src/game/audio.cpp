@@ -23,6 +23,9 @@ namespace hotd::audio { class SoundBoard {}; }   // never made: complete for Aud
 
 #ifdef HOTD_HAVE_STB_VORBIS
 #define STB_VORBIS_HEADER_ONLY
+#include <mutex>
+#include <set>
+
 #include "stb_vorbis.c"
 #endif
 #ifdef HOTD_HAVE_DR_MP3
@@ -647,7 +650,15 @@ bool Audio::init(const std::string& pcRoot, bool device, std::string& err)
         }
     }
     startThreads();
+#if defined(HOTD_IOS)
+    {   // (opened in the background: it starts when the app is back)
+        std::lock_guard<std::mutex> g(gOpenMu);
+        gOpen.insert(stream_);
+        if (!gInBackground) SDL_ResumeAudioStreamDevice(stream_);
+    }
+#else
     SDL_ResumeAudioStreamDevice(stream_);
+#endif
     return true;
 }
 
@@ -704,8 +715,33 @@ void Audio::closeWav()
     wav_ = nullptr;
 }
 
+namespace {
+// ios: the open outputs (Audio::backgroundAll); the player 2026-11-13: in the background the menus' music played on
+std::mutex gOpenMu;
+std::set<SDL_AudioStream*> gOpen;
+bool gInBackground = false;
+} // namespace
+
+void Audio::backgroundAll(bool background)
+{
+#if defined(HOTD_IOS)
+    std::lock_guard<std::mutex> g(gOpenMu);
+    gInBackground = background;
+    for (SDL_AudioStream* s : gOpen)
+        background ? SDL_PauseAudioStreamDevice(s) : SDL_ResumeAudioStreamDevice(s);
+#else
+    (void)background;
+#endif
+}
+
 void Audio::shutdown()
 {
+#if defined(HOTD_IOS)
+    {
+        std::lock_guard<std::mutex> g(gOpenMu);
+        gOpen.erase(stream_);
+    }
+#endif
     if (fakeThread_.joinable() && SDL_GetTicksNS() < fakeUntil_) {   // (the load test: the device for its whole time)
         note("audio: the fake device runs on to its " + std::string(std::getenv("HOTD_AUDIO_FAKE_DEVICE")) + " s");
         SDL_DelayNS(fakeUntil_ - SDL_GetTicksNS());

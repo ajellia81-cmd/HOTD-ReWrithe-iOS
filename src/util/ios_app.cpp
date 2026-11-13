@@ -5,6 +5,7 @@
 #include "render/gl.h"
 #include "render/gl_backend.h"
 #include "render/overlay.h"
+#include "game/audio.h"
 #include "util/frame_prof.h"
 
 #include <SDL3/SDL.h>
@@ -244,11 +245,13 @@ bool SDLCALL appFilter(void*, SDL_Event* e)
         // no OpenGL ES once in the background (iOS ends an app that draws there): what is queued finished now, the
         // next present waits (beforePresent)
         gBackground = true;
+        game::Audio::backgroundAll(true);   // (the sound stops too: the game is held in beforePresent)
         if (SDL_GL_GetCurrentContext() && gl::Finish) gl::Finish();
         SDL_Log("ios: to the background");
         return true;
     case SDL_EVENT_DID_ENTER_FOREGROUND:
         gBackground = false;
+        game::Audio::backgroundAll(false);
         SDL_Log("ios: back in the foreground");
         return true;
     case SDL_EVENT_TERMINATING:
