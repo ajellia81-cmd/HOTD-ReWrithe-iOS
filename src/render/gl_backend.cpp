@@ -428,10 +428,8 @@ void HOTD_APIENTRY esShaderSource(GLuint shader, GLsizei count, const GLchar* co
         const size_t m = es.find("void main(");
         if (m != std::string::npos) {
             es.replace(m, std::strlen("void main("), "void hotd_vmain(");
-            // (hotd_noZClamp: the test modes, util/ios_test.h, C / G; 0 in every program that never sets it)
-            es += "\nuniform int hotd_noZClamp;\nvoid main() {\n    hotd_vmain();\n"
-                  "    if (hotd_noZClamp == 0 && gl_Position.w > 0.0)\n"
-                  "        gl_Position.z = clamp(gl_Position.z, -gl_Position.w, gl_Position.w);\n}\n";
+            es += "\nvoid main() {\n    hotd_vmain();\n"
+                  "    if (gl_Position.w > 0.0) gl_Position.z = clamp(gl_Position.z, -gl_Position.w, gl_Position.w);\n}\n";
         }
     }
 #else

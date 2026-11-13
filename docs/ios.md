@@ -73,11 +73,7 @@ shader on iOS (`esShaderSource`): main wrapped, clip-space z kept within -w..w i
 depth buffer, so DEPTH24 is a 32-bit float there; the PC's earlyz path (Arcade Sort's keys from the vertex depth) needs
 the rounding to 24-bit steps to make two polygons with one key tie exactly, so on the phone float noise decided them per
 pixel (a window and the wall behind it in turn). iOS writes the keys per pixel instead (`gl_FragDepth`, the depthcmp
-path). **Test modes** (`util/ios_test.h`, for the player's device tests: one install, every suspect): a tap on the FPS
-counter (top right) goes to the next mode, its letter on the counter and in hotd.log; held half a second it turns slow
-motion (a quarter speed) on / off, as the flicker's place goes by fast. A: as built; B: the keys from the vertex depth
-(as on the PC); C: no depth clamp; D: the side strips in the visfix order; E: the palette animation in place; F: Arcade
-Sort off; G: B to E together. `env:HOTD_IOS_TEST=B` in args.txt starts in that mode. **The 120 Hz ceiling:** with every wait gone a frame's work is 3-4 ms, yet the presents
+path); `HOTD_IOS_EARLYZ=1`: as on the PC. **The 120 Hz ceiling:** with every wait gone a frame's work is 3-4 ms, yet the presents
 stay at exactly 60 a second, the rest of the frame spent in the present's blit: the OpenGL ES layer is shown at 60 Hz
 here (the display link itself runs at 120). 120 would need a Metal presentation (ANGLE's Metal back end).
 

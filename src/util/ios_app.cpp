@@ -6,7 +6,6 @@
 #include "render/gl_backend.h"
 #include "render/overlay.h"
 #include "util/frame_prof.h"
-#include "util/ios_test.h"
 
 #include <SDL3/SDL.h>
 
@@ -26,53 +25,6 @@
 namespace hotd::prof {
 double gMs[kSlots] = {};   // (util/frame_prof.h)
 }
-
-namespace hotd::iostest {
-
-namespace {
-int startMode()
-{
-    const char* e = std::getenv("HOTD_IOS_TEST");
-    if (e && *e >= 'A' && *e < 'A' + kModes) return *e - 'A';
-    if (e && *e >= 'a' && *e < 'a' + kModes) return *e - 'a';
-    return kA;
-}
-int gMode = startMode();
-} // namespace
-
-int mode() { return gMode; }
-void next()
-{
-    gMode = (gMode + 1) % kModes;
-    SDL_Log("ios: test mode %s", describe());
-}
-const char* describe()
-{
-    static const char* const kText[kModes] = {
-        "TEST A: as built (keys per pixel, z clamp, side cover, new palette)",
-        "TEST B: keys from the vertex depth (PC)",
-        "TEST C: no z clamp",
-        "TEST D: side strips old order",
-        "TEST E: palette in place",
-        "TEST F: Arcade Sort off",
-        "TEST G: all as on the PC (B+C+D+E)",
-    };
-    return kText[gMode];
-}
-bool sortPerPixel() { return gMode != kB && gMode != kG; }
-bool zClamp() { return gMode != kC && gMode != kG; }
-bool sideOld() { return gMode == kD || gMode == kG; }
-bool paletteFresh() { return gMode != kE && gMode != kG; }
-bool sortOff() { return gMode == kF; }
-static bool gSlow = false;
-bool slow() { return gSlow; }
-void toggleSlow()
-{
-    gSlow = !gSlow;
-    SDL_Log("ios: test slow motion %s", gSlow ? "on (1/4)" : "off");
-}
-
-} // namespace hotd::iostest
 
 namespace hotd::ios {
 
@@ -236,9 +188,9 @@ std::string profText(const FrameStats& f)   // the parts' ms a frame
     return t;
 }
 std::vector<std::string> gFpsLines;
-bool gFpsChanged = true;   // (the test mode shown from the start)
+bool gFpsChanged = false;
 
-enum Zone { kNone, kReload, kEsc, kMode };
+enum Zone { kNone, kReload, kEsc };
 
 bool buttonsShown()
 {
@@ -263,19 +215,8 @@ void zones(Rect& reload, Rect& esc)
     esc = {sx, sy, ew, eh};
 }
 
-// the test modes' switch (ios_test.h): the FPS counter's corner, top right in the safe area, pad or not
-bool inModeZone(float x, float y)
-{
-    int w = 0, h = 0;
-    SDL_GetWindowSize(gWindow, &w, &h);
-    SDL_Rect safe{0, 0, w, h};
-    if (!SDL_GetWindowSafeArea(gWindow, &safe) || safe.w <= 0 || safe.h <= 0) safe = {0, 0, w, h};
-    return x >= float(safe.x + safe.w) - float(w) * 0.25f && y < float(safe.y) + float(h) * 0.20f;
-}
-
 Zone hit(float x, float y)
 {
-    if (gWindow && inModeZone(x, y)) return kMode;
     if (!buttonsShown()) return kNone;
     Rect r, e;
     zones(r, e);
@@ -289,9 +230,7 @@ void press(Zone z)
 {
     if (z == kReload) ++gReloads, gFlashReload = SDL_GetTicks() + 160;
     else if (z == kEsc) ++gEscapes, gFlashEsc = SDL_GetTicks() + 160;
-    else if (z == kMode) iostest::next(), gFpsChanged = true;
 }
-Uint64 gModeDownAt = 0;   // the counter held since (a tap: the next test; held 0.5 s: slow motion on / off)
 
 bool SDLCALL appFilter(void*, SDL_Event* e)
 {
@@ -328,8 +267,7 @@ bool SDLCALL appFilter(void*, SDL_Event* e)
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
         if (e->button.which != SDL_TOUCH_MOUSEID) return true;
         if (const Zone z = hit(e->button.x, e->button.y); z != kNone) {
-            if (z == kMode) gModeDownAt = SDL_GetTicks();
-            else press(z);
+            press(z);
             gSwallow = true;
             return false;   // (not a shot at the button)
         }
@@ -338,11 +276,6 @@ bool SDLCALL appFilter(void*, SDL_Event* e)
     case SDL_EVENT_MOUSE_BUTTON_UP:
         if (e->button.which == SDL_TOUCH_MOUSEID && gSwallow) {
             gSwallow = false;
-            if (gModeDownAt) {
-                if (SDL_GetTicks() - gModeDownAt >= 500) iostest::toggleSlow();
-                else iostest::next();
-                gModeDownAt = 0, gFpsChanged = true;
-            }
             return false;
         }
         return true;
@@ -449,17 +382,12 @@ void drawFps(SDL_Window* window)
         fps.translate = false;
         fps.setStyle(150, 120, 255, 120);
     }
-    if (ready != 1) return;
+    if (ready != 1 || gFpsLines.empty()) return;
     int pw = 0, ph = 0, lw = 0, lh = 0;
     SDL_GetWindowSizeInPixels(window, &pw, &ph);
     SDL_GetWindowSize(window, &lw, &lh);
     if (pw <= 0 || ph <= 0 || lw <= 0) return;
-    if (gFpsChanged) {
-        std::vector<std::string> lines{iostest::describe(), iostest::slow() ? "SLOW 1/4  (tap: next test, hold: slow off)"
-                                                                            : "(tap: next test, hold: slow motion)"};
-        lines.insert(lines.end(), gFpsLines.begin(), gFpsLines.end());
-        fps.setText(lines, std::max(2, ph / 400)), gFpsChanged = false;
-    }
+    if (gFpsChanged) fps.setText(gFpsLines, std::max(2, ph / 400)), gFpsChanged = false;
     SDL_Rect safe{0, 0, lw, lh};
     if (!SDL_GetWindowSafeArea(window, &safe) || safe.w <= 0) safe = {0, 0, lw, lh};
     const float k = float(pw) / float(lw);
