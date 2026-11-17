@@ -83,7 +83,8 @@ runs at the display's whole rate. Nothing for Metal (no device, no texture cache
 the hidden surface removal) the PC's vertex path again with the depth ranges moved up by 0.5 (the keyed 0.5 .. 0.5 +
 2^-8, the rest 0.5 .. 1): from 0.5 a 32-bit float's step is 2^-24, the 24-bit grid, so the keys round as on the PC.
 `HOTD_IOS_FRAGKEYS=1`: the gl_FragDepth keys. **Texture buffers:** the skins' (emulated) texture buffers updated in
-place made the driver wait for the GPU ("skin / esbuf" 10-17 ms): three textures in turn, one a frame.
+place made the driver wait for the GPU ("skin / esbuf" 10-17 ms): three textures in turn, one a frame. **Depth pre-pass:** on by default on iOS (the fragment shader's discards keep the GPU from dropping hidden
+fragments before shading; the pre-pass leaves one shaded fragment a pixel); `HOTD_PREPASS=0`: off.
 
 **Show FPS** (Options > Video, iOS only, off by default): the frame-time counter at the top right (fps, the
 frame's ms, CPU / GPU, the CPU by part). **Frame rate:** 60 fps by default on iOS (Options > Video > Frame Rate; Display Refresh for 120 where LiveContainer
