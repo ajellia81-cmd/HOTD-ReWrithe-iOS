@@ -16424,6 +16424,17 @@ int main(int argc, char* argv[])
                 if (relMice && e.button.which == 0)
                     continue;
                 if (paused) {   // the pause menu: a mouse button activates the selected item (0x41ADF0: 0x12FDB84)
+#if defined(HOTD_IOS)
+                    // (ios, the player 2026-11-17: Exit tapped opened Settings or Photo Mode) a tap comes with no motion
+                    // before it, and with a pad the crosshair was elsewhere: the item chosen is the one under the finger
+                    if (e.button.which == SDL_TOUCH_MOUSEID && lh > 0) {
+                        const float s = float(lh) / 480.0f;
+                        if (hud.pauseItemAt((e.button.x - (float(lw) / 2.0f - 320.0f * s)) / s, e.button.y / s) < 0)
+                            continue;   // (a tap beside the items: nothing)
+                        guns[0].x = e.button.x, guns[0].y = e.button.y;
+                        pauseIn.pointerMoved = true;
+                    }
+#endif
                     pauseIn.activate = true;
                     continue;
                 }
