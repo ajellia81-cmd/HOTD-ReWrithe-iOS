@@ -33,6 +33,7 @@ constexpr GLenum DEPTH_TEST = 0x0B71, CULL_FACE = 0x0B44, BLEND = 0x0BE2, DEPTH_
 constexpr GLenum SCISSOR_TEST = 0x0C11;
 constexpr GLenum STENCIL_TEST = 0x0B90, FUNC_ADD = 0x8006;   // menublocks: the Remake menu's 2D passes set them
 constexpr GLenum LEQUAL = 0x0203, LESS = 0x0201, EQUAL = 0x0202;
+constexpr GLenum ALWAYS = 0x0207, KEEP = 0x1E00, REPLACE = 0x1E01, STENCIL_BUFFER_BIT = 0x0400;   // (ios: skylast)
 constexpr GLenum UNSIGNED_BYTE = 0x1401, UNSIGNED_SHORT = 0x1403, FLOAT = 0x1406, UNSIGNED_INT = 0x1405;
 constexpr GLenum TEXTURE_BUFFER = 0x8C2A, RGBA32F = 0x8814;   // Draw Depth "Arcade Sort": the polygons' sort keys
 constexpr GLenum R16UI = 0x8234, RED_INTEGER = 0x8D94, RGBA16UI = 0x8D76, RGBA_INTEGER = 0x8D99;
@@ -72,6 +73,10 @@ constexpr GLenum DEBUG_OUTPUT = 0x92E0, DEBUG_OUTPUT_SYNCHRONOUS = 0x8242, DONT_
     X(GLenum, GetError, (void)) \
     X(void, Finish, (void)) \
     X(void, Flush, (void)) \
+    X(void, StencilFunc, (GLenum func, GLint ref, GLuint mask)) \
+    X(void, StencilOp, (GLenum sfail, GLenum dpfail, GLenum dppass)) \
+    X(void, StencilMask, (GLuint mask)) \
+    X(void, ClearStencil, (GLint s)) \
     X(const GLubyte*, GetString, (GLenum name)) \
     X(void, ReadPixels, (GLint x, GLint y, GLsizei w, GLsizei h, GLenum format, GLenum type, void* data)) \
     X(void, PixelStorei, (GLenum pname, GLint param)) \

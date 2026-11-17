@@ -1760,6 +1760,7 @@ void Renderer::draw(const std::vector<DrawItem>& items, const Camera& cam, int w
         for (size_t i = 0; i < items.size(); ++i) order_.push_back(keyed(i) ? orderArcade_[k++] : i);
     }
     bool keyedRange = false;
+    bool skyFar = false;   // (ios skylast: the sky's pass, its depth range fixed)
 #if defined(HOTD_IOS)
     // (ios: the depth ranges from 0.5 up, see init's "Depth ties": the keyed 0.5 .. 0.5 + 2^-8, the rest 0.5 .. 1)
     const double depthBase = sortVertex ? 0.5 : 0.0;
@@ -1938,12 +1939,47 @@ void Renderer::draw(const std::vector<DrawItem>& items, const Camera& cam, int w
         gl::DepthMask(gl::TRUE_);
         gl::Clear(gl::DEPTH_BUFFER_BIT);
     }
+#if defined(HOTD_IOS)
+    // ios skylast (the player 2026-11-17: down to ~80 fps after the second hostage of chapter 1, the sky's pass 2-4 ms a
+    // frame of a whole-screen shading that the room then covered): the zone's sky after its opaque pass, only where
+    // that drew nothing (the stencil: the opaque pass marks its pixels), then the late pass (decals, fading PC models:
+    // blended over the sky as before) and the blended one. The sky's depth in the range's far end (1 - 2^-8 .. 1: the
+    // sky models still hide each other; what follows is in front of it, as after the depth clear it had).
+    // HOTD_IOS_SKYFIRST=1: as before
+    static const bool skyFirstEnv = std::getenv("HOTD_IOS_SKYFIRST") != nullptr;
+    const bool skyLast = !skyFirstEnv && phase == 1 && sortVertex && !prepass && drawFbo != 0 &&
+                         unsigned(drawFbo) != gl::iosViewFbo();
+#else
+    const bool skyLast = false;
+#endif
+    static const int kSkyLastOrder[4] = {1, 0, 2, 3};
     for (int step = phase == 0 ? 1 : 0; step < (prepass ? 5 : 4); ++step) {
-    const int pass = prepass && step >= 2 ? step - 1 : step;
+    const int pass = skyLast ? kSkyLastOrder[step] : prepass && step >= 2 ? step - 1 : step;
     const bool shadeAfterPre = prepass && step == 2;   // the opaque pass's colours after the depth-only one
     // the sky models hide each other by depth (Chapter 1: the mountain band 0x608 lies inside the cloud cylinder 0xA29;
     // drawn in list order without depth the clouds covered the mountains), then the depth is cleared for the scene
-    if (pass == 1 && !shadeAfterPre) gl::Clear(gl::DEPTH_BUFFER_BIT);
+    if (pass == 1 && !shadeAfterPre) {
+        if (skyLast) {   // (the opaque pass marks its pixels in the stencil)
+            gl::ClearStencil(0);
+            gl::StencilMask(0xFF);
+            gl::Clear(gl::DEPTH_BUFFER_BIT | gl::STENCIL_BUFFER_BIT);
+            gl::Enable(gl::STENCIL_TEST);
+            gl::StencilFunc(gl::ALWAYS, 1, 0xFF);
+            gl::StencilOp(gl::KEEP, gl::KEEP, gl::REPLACE);
+        } else {
+            gl::Clear(gl::DEPTH_BUFFER_BIT);
+        }
+    }
+    if (skyLast && pass == 0) {   // the sky where the opaque pass drew nothing, at the depth's far end
+        gl::StencilFunc(gl::EQUAL, 0, 0xFF);
+        gl::StencilOp(gl::KEEP, gl::KEEP, gl::KEEP);
+        gl::DepthRange(1.0 - 1.0 / 256.0, 1.0);
+        skyFar = true;
+    } else if (skyLast && pass == 2) {
+        gl::Disable(gl::STENCIL_TEST);
+        skyFar = false;
+        gl::DepthRange(depthBase, keyedRange ? depthBase + 1.0 / 256.0 : 1.0);
+    }
     if (prepass && step == 1) {
         gl::ColorMask(gl::FALSE_, gl::FALSE_, gl::FALSE_, gl::FALSE_);
         gl::Uniform1i(uPrepass_, 1);
@@ -2035,7 +2071,7 @@ void Renderer::draw(const std::vector<DrawItem>& items, const Camera& cam, int w
             if (set != boundSet && set >= 0 && set < int(g.sets.size())) {
                 const GpuSet& s = g.sets[size_t(set)];
                 set1i(kShading, uShading_, s.shading == Shading::Model2Indexed ? 1 : 0);
-                if (const bool keyed = sortVertex && s.shading == Shading::Model2Indexed; keyed != keyedRange) {
+                if (const bool keyed = sortVertex && s.shading == Shading::Model2Indexed; keyed != keyedRange && !skyFar) {
                     gl::DepthRange(depthBase, keyed ? depthBase + 1.0 / 256.0 : 1.0);
                     keyedRange = keyed;
                     ++stateCalls;
@@ -2104,7 +2140,7 @@ void Renderer::draw(const std::vector<DrawItem>& items, const Camera& cam, int w
     {
         static const char* const kStep[2][5] = {{"pieces/sky", "pieces/opaque", "pieces/late", "pieces/blend", "pieces/4"},
                                                  {"sky", "opaque", "late", "blend", "5"}};
-        profMark(kStep[phase][std::min(step, 4)]);
+        profMark(kStep[phase][std::min(pass, 4)]);
     }
     }
     }

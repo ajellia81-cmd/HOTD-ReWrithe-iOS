@@ -84,7 +84,10 @@ the hidden surface removal) the PC's vertex path again with the depth ranges mov
 2^-8, the rest 0.5 .. 1): from 0.5 a 32-bit float's step is 2^-24, the 24-bit grid, so the keys round as on the PC.
 `HOTD_IOS_FRAGKEYS=1`: the gl_FragDepth keys. **Texture buffers:** the skins' (emulated) texture buffers updated in
 place made the driver wait for the GPU ("skin / esbuf" 10-17 ms): three textures in turn, one a frame. **Depth pre-pass:** on by default on iOS (the fragment shader's discards keep the GPU from dropping hidden
-fragments before shading; the pre-pass leaves one shaded fragment a pixel); `HOTD_PREPASS=0`: off.
+fragments before shading; the pre-pass leaves one shaded fragment a pixel); `HOTD_PREPASS=0`: off. **Sky last:** the zone's sky drawn after its opaque pass, only where that drew nothing (the stencil), at the
+depth range's far end (1 - 2^-8 .. 1), then the late and blended passes: the sky's whole-screen shading (2-4 ms) was
+mostly covered by the room. `HOTD_IOS_SKYFIRST=1`: as before. (`HOTD_IOS_GPUPROF=1`: the GPU's time by pass, every
+240th frame, in hotd.log.)
 
 **Show FPS** (Options > Video, iOS only, off by default): the frame-time counter at the top right (fps, the
 frame's ms, CPU / GPU, the CPU by part). **Frame rate:** 60 fps by default on iOS (Options > Video > Frame Rate; Display Refresh for 120 where LiveContainer
