@@ -613,8 +613,9 @@ static void depthPrepassAuto()
     // ios (the player 2026-11-17: the GPU still 10-25 ms a frame in places of chapter 1): the fragment shader's
     // discards keep Apple's GPUs from hiding the fragments behind others before they are shaded, so every layer of a
     // room was shaded. With the depth pre-pass the colour pass shades one fragment a pixel. HOTD_PREPASS=0: off
-    hotd::setDepthPrepass(true);
-    SDL_Log("3D depth pre-pass: %s", hotd::depthPrepass() ? "on (iOS; HOTD_PREPASS=0: off)" : "off (HOTD_PREPASS=0)");
+    // (2026-11-17, the player's test: with it the GPU's time rose everywhere, 6 -> 12-15 ms: off again; HOTD_PREPASS=1)
+    hotd::setDepthPrepass(false);
+    SDL_Log("3D depth pre-pass: %s", hotd::depthPrepass() ? "on (HOTD_PREPASS=1)" : "off");
     return;
 #endif
     hotd::setDepthPrepass(false);

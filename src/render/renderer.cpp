@@ -1858,6 +1858,31 @@ void Renderer::draw(const std::vector<DrawItem>& items, const Camera& cam, int w
     }
 #endif
     if (cover) clearAlpha(0.0f);
+#if defined(HOTD_IOS)
+    // ios (the player 2026-11-17: the GPU 25-30 ms a frame at a place of chapter 1): HOTD_IOS_GPUPROF=1: every 240th
+    // frame the GPU's time by pass (a glFinish at each boundary), its triangles and draws, in hotd.log
+    static const bool gpuProf = std::getenv("HOTD_IOS_GPUPROF") != nullptr;
+    static unsigned profN = 0;
+    const bool profNow = gpuProf && ++profN % 240 == 0;
+    std::string profLine;
+    Uint64 profT = 0;
+    uint64_t profTris = triangles, profDraws = drawCalls;
+    auto profMark = [&](const char* what) {
+        if (!profNow) return;
+        gl::Finish();
+        const Uint64 t = SDL_GetTicksNS();
+        if (profT) {
+            char b[96];
+            std::snprintf(b, sizeof b, "  %s %.2f ms %llu tris %llu draws", what, double(t - profT) * 1e-6,
+                          (unsigned long long)(triangles - profTris), (unsigned long long)(drawCalls - profDraws));
+            profLine += b;
+        }
+        profT = t, profTris = triangles, profDraws = drawCalls;
+    };
+    profMark("start");
+#else
+    auto profMark = [](const char*) {};
+#endif
     const int phases[2] = {cover ? 1 : 0, cover ? 0 : 1};
     for (int pi = hasSide ? 0 : 1; pi < 2; ++pi) {
     const int phase = phases[pi];
@@ -2076,11 +2101,22 @@ void Renderer::draw(const std::vector<DrawItem>& items, const Camera& cam, int w
             triangles += uint64_t(rg.count) / 3;
         }
     }
+    {
+        static const char* const kStep[2][5] = {{"pieces/sky", "pieces/opaque", "pieces/late", "pieces/blend", "pieces/4"},
+                                                 {"sky", "opaque", "late", "blend", "5"}};
+        profMark(kStep[phase][std::min(step, 4)]);
+    }
     }
     }
     if (activeUnit != 0)
         gl::ActiveTexture(gl::TEXTURE0);
     if (cover) clearAlpha(1.0f);   // (render5: the alpha as before for what reads the picture)
+    profMark("alpha");
+#if defined(HOTD_IOS)
+    if (profNow)
+        SDL_Log("renderer (iOS): the GPU by pass (sort %d, cover %d, mrt %d, prepass %d, %dx%d):%s", sort ? 1 : 0,
+                cover ? 1 : 0, coverMrt ? 1 : 0, prepass ? 1 : 0, width, height, profLine.c_str());
+#endif
     if (keyedRange || depthBase != 0.0) gl::DepthRange(0.0, 1.0);
     gl::DepthMask(gl::TRUE_);
     gl::Disable(gl::BLEND);
