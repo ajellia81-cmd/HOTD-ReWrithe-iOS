@@ -571,12 +571,26 @@ void HOTD_APIENTRY esTexSubImage2D(GLenum target, GLint level, GLint x, GLint y,
 struct TexBuf {
     std::vector<float> data;   // whole rows
     GLuint tex = 0;
+#if defined(HOTD_IOS)
+    // ios (the player 2026-11-17: "skin / esbuf" 10-17 ms a frame in the later chapters): a TexSubImage2D into the
+    // texture the frames in flight still read made Apple's OpenGL ES wait for the GPU. The first update of a frame
+    // takes the next of three textures (the whole data into it), the frame's later ones go into that one; binding the
+    // buffer's texture (the renderer's name, tex) binds the current one (cur)
+    GLuint ring[3] = {};
+    GLuint cur = 0;
+    size_t rows[3] = {};        // the rows each of the ring's textures was made with
+    uint64_t frame = ~0ull;     // the frame of the last turn
+#endif
 };
 std::map<GLuint, TexBuf> gTexBufs;        // buffer -> its data and texture
 std::map<GLuint, GLuint> gTexOfBuf;       // (unused ids skipped)
 GLuint gBoundTexBuf = 0;
 GLint gSaved2D[32] = {};                  // the unit's 2D texture while a buffer texture is bound (the separate target)
 GLuint gBoundBufTex[32] = {};
+#if defined(HOTD_IOS)
+uint64_t gEsFrame = 0;                    // ios: the frames presented (iosPresent): a texture buffer's turn per frame
+std::map<GLuint, GLuint> gTexBufCur;      // ios: a buffer texture's name -> the ring's current texture
+#endif
 
 GLint activeUnit()
 {
@@ -588,6 +602,59 @@ GLint activeUnit()
 void uploadRows(TexBuf& b, size_t firstRow, size_t rows, bool whole)
 {
     if (!b.tex) return;
+#if defined(HOTD_IOS)
+    if (!whole && rows) {
+        const size_t allRows = b.data.size() / (kTbWidth * 4);
+        GLint prev = 0;
+        esGetIntegerv(kTextureBinding2D, &prev);
+        if (b.frame != gEsFrame) {   // this frame's first update: the next texture, the whole data
+            if (!b.ring[0]) {
+                b.ring[0] = b.tex;
+                GenTextures(2, b.ring + 1);
+            }
+            int k = 0;
+            while (k < 3 && b.ring[k] != b.cur) ++k;
+            const int nk = k < 3 ? (k + 1) % 3 : 1;
+            const GLuint next = b.ring[nk];
+            realBindTexture(TEXTURE_2D, next);
+            if (b.rows[nk] != allRows) {   // (made here, or the size changed)
+                realTexImage2D(TEXTURE_2D, 0, GLint(RGBA32F), kTbWidth, GLsizei(allRows), 0, RGBA, FLOAT, b.data.data());
+                realTexParameteri(TEXTURE_2D, TEXTURE_MIN_FILTER, GLint(NEAREST));
+                realTexParameteri(TEXTURE_2D, TEXTURE_MAG_FILTER, GLint(NEAREST));
+            } else {
+                realTexSubImage2D(TEXTURE_2D, 0, 0, 0, kTbWidth, GLsizei(allRows), RGBA, FLOAT, b.data.data());
+            }
+            b.rows[nk] = allRows;
+            b.cur = next, b.frame = gEsFrame;
+            gTexBufCur[b.tex] = next;
+            // a unit with this buffer's texture bound: the new one there (the renderer binds it once per frame or less)
+            GLint unit0 = GLint(TEXTURE0);
+            esGetIntegerv(kActiveTexture, &unit0);
+            bool moved = false;
+            for (int u = 0; u < 32; ++u)
+                if (gBoundBufTex[u] == b.tex) {
+                    ActiveTexture(GLenum(TEXTURE0 + u));
+                    realBindTexture(TEXTURE_2D, next);
+                    moved = true;
+                }
+            if (moved) ActiveTexture(GLenum(unit0));
+            GLint now = GLint(TEXTURE0);
+            esGetIntegerv(kActiveTexture, &now);
+            if (gBoundBufTex[now - GLint(TEXTURE0)] != b.tex) realBindTexture(TEXTURE_2D, GLuint(prev));
+            return;
+        }
+        realBindTexture(TEXTURE_2D, b.cur ? b.cur : b.tex);
+        realTexSubImage2D(TEXTURE_2D, 0, 0, GLint(firstRow), kTbWidth, GLsizei(rows), RGBA, FLOAT,
+                          b.data.data() + firstRow * kTbWidth * 4);
+        realBindTexture(TEXTURE_2D, GLuint(prev));
+        return;
+    }
+    if (whole) {   // (a new size or contents: the ring starts again from the buffer's own texture)
+        b.cur = 0, b.frame = ~0ull;
+        gTexBufCur.erase(b.tex);
+        b.rows[0] = b.data.size() / (kTbWidth * 4);
+    }
+#endif
     GLint prev = 0;
     esGetIntegerv(kTextureBinding2D, &prev);
     realBindTexture(TEXTURE_2D, b.tex);
@@ -649,6 +716,9 @@ void HOTD_APIENTRY esBindTexture(GLenum target, GLuint texture)
     if (texture) {
         if (!gBoundBufTex[unit]) esGetIntegerv(kTextureBinding2D, &gSaved2D[unit]);
         gBoundBufTex[unit] = texture;
+#if defined(HOTD_IOS)
+        if (auto c = gTexBufCur.find(texture); c != gTexBufCur.end()) { realBindTexture(TEXTURE_2D, c->second); return; }
+#endif
         realBindTexture(TEXTURE_2D, texture);
     } else if (gBoundBufTex[unit]) {
         gBoundBufTex[unit] = 0;
@@ -658,7 +728,15 @@ void HOTD_APIENTRY esBindTexture(GLenum target, GLuint texture)
 
 void HOTD_APIENTRY esDeleteBuffers(GLsizei n, const GLuint* buffers)
 {
-    for (GLsizei i = 0; i < n; ++i) gTexBufs.erase(buffers[i]);
+    for (GLsizei i = 0; i < n; ++i) {
+#if defined(HOTD_IOS)
+        if (auto it = gTexBufs.find(buffers[i]); it != gTexBufs.end() && it->second.ring[1]) {
+            gTexBufCur.erase(it->second.tex);
+            DeleteTextures(2, it->second.ring + 1);   // (the renderer deletes its own, ring[0])
+        }
+#endif
+        gTexBufs.erase(buffers[i]);
+    }
     realDeleteBuffers(n, buffers);
 }
 
@@ -742,6 +820,7 @@ bool iosSceneReady() { return gIosSceneFbo && !gIosSceneOff; }
 
 void iosPresent(int w, int h, unsigned target)
 {
+    ++gEsFrame;   // (the texture buffers' turns: one a frame)
     if (!gIosViewFbo || w <= 0 || h <= 0) return;
     constexpr GLenum kRead = 0x8CA8, kDraw = 0x8CA9, kD24S8 = 0x88F0, kDepthStencil = 0x821A, kComplete = 0x8CD5;
     if (gIosSceneFbo && !gIosSceneOff) {   // the frame: into the view's

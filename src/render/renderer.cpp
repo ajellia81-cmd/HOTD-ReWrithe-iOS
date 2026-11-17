@@ -1049,10 +1049,13 @@ bool Renderer::init(std::string& err)
 #if defined(HOTD_IOS)
     // ios (docs/ios.md "Depth ties"): Apple's GPUs have no 24-bit depth (Metal's Depth24Unorm_Stencil8 is the Mac's
     // alone), so its OpenGL ES keeps DEPTH24 as a 32-bit float: the earlyz path's ties, exact only by the rounding to
-    // 24-bit steps, were decided per pixel by float noise instead (a window's polygons and the wall behind them in
-    // turn, frame by frame: the background flicker). The keys written as they are (gl_FragDepth) instead.
-    // HOTD_IOS_EARLYZ=1: the vertex path as on the PC
-    if (!std::getenv("HOTD_IOS_EARLYZ")) sortFragDepth_ = true;
+    // 24-bit steps, were decided per pixel by float noise near 0 (the keyed range 0 .. 2^-8; a window's polygons and
+    // the wall behind them in turn: the background flicker). First the keys by gl_FragDepth (no flicker, but no early
+    // depth test or hidden surface removal: the GPU 15-30 ms a frame in the later chapters, the player 2026-11-17).
+    // Now the vertex path as on the PC with the depth ranges moved up by 0.5 (draw below, iosDepthBase_): from 0.5
+    // a 32-bit float's step is 2^-24, the 24-bit grid itself, so the keys (a quarter step off the grid) round as
+    // they do on the PC. HOTD_IOS_FRAGKEYS=1: the gl_FragDepth keys again
+    if (std::getenv("HOTD_IOS_FRAGKEYS")) sortFragDepth_ = true;
     SDL_Log("renderer (iOS): Arcade Sort's keys %s", sortFragDepth_ ? "per pixel (gl_FragDepth)" : "from the vertex depth");
 #endif
     auto withDefines = [&](const char* src) {
@@ -1757,6 +1760,13 @@ void Renderer::draw(const std::vector<DrawItem>& items, const Camera& cam, int w
         for (size_t i = 0; i < items.size(); ++i) order_.push_back(keyed(i) ? orderArcade_[k++] : i);
     }
     bool keyedRange = false;
+#if defined(HOTD_IOS)
+    // (ios: the depth ranges from 0.5 up, see init's "Depth ties": the keyed 0.5 .. 0.5 + 2^-8, the rest 0.5 .. 1)
+    const double depthBase = sortVertex ? 0.5 : 0.0;
+    if (sortVertex) gl::DepthRange(0.5, 1.0);
+#else
+    const double depthBase = 0.0;
+#endif
     int activeUnit = 0;
     auto bindTex = [&](int unit, gl::GLenum target, gl::GLuint tex) {
         if (unitKnown[unit] && unitTex[unit] == tex) return;
@@ -2001,7 +2011,7 @@ void Renderer::draw(const std::vector<DrawItem>& items, const Camera& cam, int w
                 const GpuSet& s = g.sets[size_t(set)];
                 set1i(kShading, uShading_, s.shading == Shading::Model2Indexed ? 1 : 0);
                 if (const bool keyed = sortVertex && s.shading == Shading::Model2Indexed; keyed != keyedRange) {
-                    gl::DepthRange(0.0, keyed ? 1.0 / 256.0 : 1.0);
+                    gl::DepthRange(depthBase, keyed ? depthBase + 1.0 / 256.0 : 1.0);
                     keyedRange = keyed;
                     ++stateCalls;
                 }
@@ -2071,7 +2081,7 @@ void Renderer::draw(const std::vector<DrawItem>& items, const Camera& cam, int w
     if (activeUnit != 0)
         gl::ActiveTexture(gl::TEXTURE0);
     if (cover) clearAlpha(1.0f);   // (render5: the alpha as before for what reads the picture)
-    if (keyedRange) gl::DepthRange(0.0, 1.0);
+    if (keyedRange || depthBase != 0.0) gl::DepthRange(0.0, 1.0);
     gl::DepthMask(gl::TRUE_);
     gl::Disable(gl::BLEND);
     gl::BindVertexArray(0);

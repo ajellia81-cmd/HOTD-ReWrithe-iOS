@@ -15750,7 +15750,18 @@ int main(int argc, char* argv[])
             lines.push_back(!launcher ? "Click or press Enter: play again   Esc: quit"
                             : feLoaded ? "Click, Enter, Esc or pad A / B: back to the main menu"
                                        : "Click, Enter, Esc or pad A / B: back to the launcher");
+#if defined(HOTD_IOS)
+            // (ios, the player 2026-11-17: tiny on the phone's 1320 lines) as large as the pause's lines (hud.cpp)
+            {   // (the widest line kept on the screen: 8 S a column)
+                size_t cols = 1;
+                for (const std::string& l : lines) cols = std::max(cols, l.size());
+                const int fit = int(float(ww) * 0.94f / float(8 * cols + 12));
+                endScreen.setText(lines, std::max(wh >= 720 && ww >= 1280 ? 3 : 2,
+                                                  std::min(fit, int(float(wh) * 28.0f / (480.0f * 11.0f) + 0.5f))));
+            }
+#else
             endScreen.setText(lines, wh >= 720 && ww >= 1280 ? 3 : 2);
+#endif
             pillarbox(ww, wh);
             endScreen.drawAt(ww, wh, ww * 0.5f, wh * 0.5f);
             if (shot) {
@@ -17440,6 +17451,13 @@ int main(int argc, char* argv[])
         if (static bool vrrSeen = cfg.vrr; vrrSeen != cfg.vrr) {
             vrrSeen = cfg.vrr;
             util::setBorderlessExact(window, cfg.vrr);
+            applyPresentation();
+            prevFrame.valid = false;
+        }
+        // (the player 2026-11-17: Frame Rate changed in the in-game settings applied only from the next game) Frame
+        // Rate and Vsync: the limiter and the swap interval now, as at a game's start
+        if (static int rateSeen = cfg.frameRate, vsyncSeen = cfg.vsync; rateSeen != cfg.frameRate || vsyncSeen != cfg.vsync) {
+            rateSeen = cfg.frameRate, vsyncSeen = cfg.vsync;
             applyPresentation();
             prevFrame.valid = false;
         }
