@@ -169,6 +169,17 @@ const Pads::Pad* Pads::padFor(int p) const
     return nullptr;
 }
 
+#if defined(HOTD_IOS)
+// ios: a pad's haptics made before play (the Lost World port's finding, 2026-11-19): a rumble for a millisecond at the
+// faintest level makes the engine and each motor's player; a level of 0 stops short of the players, which the first
+// real rumble then made (a long hitch at times). The triggers' motors (Xbox) too
+static void warmRumble(SDL_Gamepad* g)
+{
+    SDL_RumbleGamepad(g, 1, 1, 1);
+    SDL_RumbleGamepadTriggers(g, 1, 1, 1);
+}
+#endif
+
 void Pads::refresh()
 {
     if (!started_)
@@ -187,9 +198,13 @@ void Pads::refresh()
         for (Pad& d : pads_) {
             SDL_CloseGamepad(d.g);
             d.g = SDL_OpenGamepad(d.id);
-            if (d.g) SDL_RumbleGamepad(d.g, 0, 0, 1);
+            if (!d.g) continue;
+            warmRumble(d.g);
+            d.sensorsOn = false;   // (the gyro, the light bar, the player light, the DualSense trigger: set again below)
+            d.effectFor = -100;
         }
         pads_.erase(std::remove_if(pads_.begin(), pads_.end(), [](const Pad& d) { return d.g == nullptr; }), pads_.end());
+        assign();
         if (!pads_.empty())
             SDL_Log("pads (iOS): %zu pad(s) opened again after the background, the haptics made again (%.1f ms)",
                     pads_.size(), double(SDL_GetTicksNS() - t0) * 1e-6);
@@ -226,7 +241,7 @@ void Pads::refresh()
             continue;
         }
 #if defined(HOTD_IOS)
-        SDL_RumbleGamepad(g, 0, 0, 1);   // (ios: the haptics engines made now, not at the first rumble in play)
+        warmRumble(g);   // (ios: the haptics made now, not at the first rumble in play)
 #endif
         Pad d;
         d.id = ids[i];

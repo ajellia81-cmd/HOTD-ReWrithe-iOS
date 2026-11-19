@@ -113,7 +113,7 @@ lets frames faster than 60 through). The first device test at 120 paced unevenly
   > Controller: Player 1 > Stick Sensitivity.
 - **Rumble after the background:** iOS stops a controller's haptics engines in the background and SDL never starts
   them again (silent from then on; made again in play: a stall). Back in the foreground the pads are opened again and
-  their rumble made at once (`game/pads.cpp`, `ios::foregroundCount`); a new pad's too, at its connection.
+  their rumble made at once at the faintest level for a millisecond (a level of 0 makes the engine but not the motors' players: the first rumble then hitched; the Lost World port's finding), the gyro and lights set again (`game/pads.cpp`, `ios::foregroundCount`); a new pad's too, at its connection.
 - **Quit** (the main menu): the app closes (SDL's UIKit app would stay on a black screen after the game's main
   returns; `std::exit` after main's locals).
 - **Not on iOS:** the update check (a sideloaded app), text-to-speech (no programs to start), the developer tools.
