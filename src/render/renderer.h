@@ -205,6 +205,11 @@ private:
     // sinkfix: the members whose uniform sits at another location in programBand_ (that location), swapped in while
     // the band program draws (init / draw)
     std::vector<std::pair<gl::GLint*, gl::GLint>> bandLocs_;
+    // ios (lean): the main program again with the options seldom on compiled out (texture packs, Rainbow Blood, the
+    // grey look, the debug ids: constants of their off values), used while they are off; its own uniform locations
+    gl::GLuint programLean_ = 0;
+    std::vector<std::pair<gl::GLint*, gl::GLint>> leanLocs_;
+    bool anyRepl_ = false;   // a texture pack's map made (the lean program unusable from then on)
     bool sortFragDepth_ = false;   // earlyz: Arcade Sort through gl_FragDepth (HOTD_SORT_FRAGDEPTH / _EXACT), else vertex depth
     std::vector<size_t> order_, orderArcade_;   // draw: the items' order in the depth-writing passes (kept: no allocation)
     void uploadReplacements(const StageReplacements& rp, GpuStage& g);

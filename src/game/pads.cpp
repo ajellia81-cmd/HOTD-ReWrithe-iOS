@@ -433,6 +433,11 @@ void Pads::assign()
             if (d.player < 0) {
                 d.player = p;
                 lost_[p] = false;
+#if defined(HOTD_IOS)
+                // (ios, as the Lost World port: a pad's sight starts in the middle of the screen, not where the last
+                // tap left player 1's; the next apply() puts it there)
+                recentre_[p] = true;
+#endif
                 SDL_Log("pads: player %d: %s (%u)", p + 1, d.name.c_str(), unsigned(d.id));
                 break;
             }

@@ -33,7 +33,7 @@ Installed on its own (Xcode, AltStore, SideStore), the folder is Files -> On My 
 | **RELOAD** (bottom right, in play) | reload (as a shot off the screen) |
 | a second finger anywhere (in play) | reload too |
 | **II** (top left, in play) / **BACK** (in the menus) | Esc: the pause menu / back |
-| a game controller | **left stick** moves the crosshair, **R2 / RT** shoots, **L2 / LT** reloads, **A (South) held** = the crosshair 2.5x faster; Start pauses. It works as soon as it connects (player 1 keeps the touch too, nothing to set); **the touch buttons hide** while one is connected and come back when it goes away (no pause). The gyro is not used unless a motion style is chosen in the controller options |
+| a game controller | (its crosshair starts in the middle of the screen when it is given to a player) **left stick** moves the crosshair, **R2 / RT** shoots, **L2 / LT** reloads, **A (South) held** = the crosshair 2.5x faster; Start pauses. It works as soon as it connects (player 1 keeps the touch too, nothing to set); **the touch buttons hide** while one is connected and come back when it goes away (no pause). The gyro is not used unless a motion style is chosen in the controller options |
 | an iPad's mouse / keyboard | as on a PC |
 
 The buttons sit inside the screen's safe area (clear of the Dynamic Island and the home indicator). Options ->
@@ -87,7 +87,10 @@ place made the driver wait for the GPU ("skin / esbuf" 10-17 ms): three textures
 fragments before shading; the pre-pass leaves one shaded fragment a pixel); `HOTD_PREPASS=0`: off. **Sky last:** the zone's sky drawn after its opaque pass, only where that drew nothing (the stencil), at the
 depth range's far end (1 - 2^-8 .. 1), then the late and blended passes: the sky's whole-screen shading (2-4 ms) was
 mostly covered by the room. `HOTD_IOS_SKYFIRST=1`: as before. (`HOTD_IOS_GPUPROF=1`: the GPU's time by pass, every
-240th frame, in hotd.log.)
+240th frame, in hotd.log.) **Lean program** (the Lost World port's finding): the main shader linked a second time with the seldom-on options
+as constants of their off values (texture packs, Rainbow Blood, the grey look, the debug ids: `HOTD_LEAN`), so their
+code is compiled out (fewer registers a fragment); used while those are off, the full program otherwise.
+`HOTD_IOS_FULLSHADER=1`: never.
 
 **Show FPS** (Options > Video, iOS only, off by default): the frame-time counter at the top right (fps, the
 frame's ms, CPU / GPU, the CPU by part). **Frame rate:** 60 fps by default on iOS (Options > Video > Frame Rate; Display Refresh for 120 where LiveContainer

@@ -1083,6 +1083,18 @@ bool Renderer::init(std::string& err)
             vsSrc.insert(vsSrc.find('\n') + 1, extra);
             fsSrc.insert(fsSrc.find('\n') + 1, extra);
         }
+        if (extra && std::strstr(extra, "HOTD_LEAN")) {
+            // (ios lean, the Lost World port's finding: the options' code compiled out, not branched past at run time:
+            // fewer registers a fragment on a tile GPU) the seldom-on uniforms declared as constants of their off values
+            static const char* const kOff[][2] = {
+                {"uniform int uHasRepl;", "const int uHasRepl = 0;"}, {"uniform int uRainbow;", "const int uRainbow = 0;"},
+                {"uniform int uGrey;", "const int uGrey = 0;"}, {"uniform int uGreyRepl;", "const int uGreyRepl = 0;"},
+                {"uniform int uIdMode;", "const int uIdMode = 0;"}};
+            for (std::string* src : {&vsSrc, &fsSrc})
+                for (const auto& kv : kOff)
+                    for (size_t at = src->find(kv[0]); at != std::string::npos; at = src->find(kv[0], at + 1))
+                        src->replace(at, std::strlen(kv[0]), kv[1]);
+        }
         gl::GLuint vs = compile(gl::VERTEX_SHADER, vsSrc.c_str(), e);
         if (!vs) return 0;
         gl::GLuint fs = compile(gl::FRAGMENT_SHADER, fsSrc.c_str(), e);
@@ -1152,6 +1164,21 @@ bool Renderer::init(std::string& err)
         {"uBodyHue", &uBodyHue_}};   // (cosmods: Rainbow Blood's creature colour)
     for (const auto& [name, loc] : uniforms)
         *loc = gl::GetUniformLocation(program_, name);
+#if defined(HOTD_IOS)
+    {
+        std::string leanErr;
+        programLean_ = link("#define HOTD_LEAN 1\n", leanErr);
+        leanLocs_.clear();
+        if (programLean_) {
+            for (const auto& [name, loc] : uniforms)
+                if (const gl::GLint b = gl::GetUniformLocation(programLean_, name); b != *loc) leanLocs_.push_back({loc, b});
+            SDL_Log("renderer (iOS): the lean program (packs, Rainbow Blood, grey, ids compiled out): %zu uniform(s) remapped",
+                    leanLocs_.size());
+        } else {
+            SDL_Log("renderer (iOS): no lean program (%s): the full one", leanErr.c_str());
+        }
+    }
+#endif
     // sinkfix (user 2026-11-10 on the Quest 3: "in vr the first researcher is sinking to the pavement"): the locations
     // are the driver's choice. Before, any uniform at another place in the band program (even a sampler, which link()
     // sets in each program anyway) dropped that program (the band per vertex: the opening's feet in the kerb, as
@@ -1520,6 +1547,7 @@ void Renderer::uploadReplacements(const StageReplacements& rp, GpuStage& g)
             }
         }
         mapTexture(g.sets[s].replMap, map);
+        anyRepl_ = true;
         if (anyRef) mapTexture(g.sets[s].replRef, refMap);
     }
 }
@@ -1642,13 +1670,20 @@ void Renderer::draw(const std::vector<DrawItem>& items, const Camera& cam, int w
     static const char* bandEnv = std::getenv("HOTD_KEY_BAND");
     const float band = sort ? 0.0f : bandEnv ? std::max(0.0f, float(std::atof(bandEnv))) : cam.keyBand >= 0.0f ? cam.keyBand : cam.perPixelDepth ? kKeyBandFreeCam : kKeyBand;
     const bool bandFrag = band > 0.0f && programBand_ != 0;
-    gl::UseProgram(bandFrag ? programBand_ : program_);
+#if defined(HOTD_IOS)
+    // (ios lean: while its compiled-out options are off; HOTD_IOS_FULLSHADER=1: never)
+    static const bool fullShader = std::getenv("HOTD_IOS_FULLSHADER") != nullptr;
+    const bool lean = !fullShader && programLean_ && !bandFrag && !anyRepl_ && opt.rainbow == 0 && !opt.grey && !debugIds;
+#else
+    const bool lean = false;
+#endif
+    gl::UseProgram(bandFrag ? programBand_ : lean ? programLean_ : program_);
     // sinkfix: the band program's own uniform locations where its driver placed them elsewhere (init), for this draw
     struct LocSwap {
         std::vector<std::pair<gl::GLint*, gl::GLint>>* locs;
         void swap() const { for (auto& [m, l] : *locs) std::swap(*m, l); }
         ~LocSwap() { if (locs) swap(); }
-    } locSwap{bandFrag && !bandLocs_.empty() ? &bandLocs_ : nullptr};
+    } locSwap{bandFrag && !bandLocs_.empty() ? &bandLocs_ : lean && !leanLocs_.empty() ? &leanLocs_ : nullptr};
     if (locSwap.locs) locSwap.swap();
     gl::ActiveTexture(gl::TEXTURE0 + 3);
     gl::BindTexture(gl::TEXTURE_2D, palAnim_);
