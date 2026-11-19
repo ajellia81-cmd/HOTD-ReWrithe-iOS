@@ -131,6 +131,7 @@ std::string unpackData()
 
 SDL_Window* gWindow = nullptr;
 std::atomic<bool> gBackground{false}, gTerminating{false};
+unsigned gForegrounds = 0;   // (the returns to the foreground: the pads opened again after each, game/pads.cpp)
 bool gInGame = false;
 bool gSwallow = false;             // the touch mouse's press landed on a button: its motion / release are the button's
 bool gInjecting = false;           // our own events going in (the filter lets them through)
@@ -251,6 +252,7 @@ bool SDLCALL appFilter(void*, SDL_Event* e)
         return true;
     case SDL_EVENT_DID_ENTER_FOREGROUND:
         gBackground = false;
+        ++gForegrounds;
         game::Audio::backgroundAll(false);
         SDL_Log("ios: back in the foreground");
         return true;
@@ -557,6 +559,8 @@ void setShowFps(bool on)
     if (on && !gShowFps) gFpsChanged = true;   // (the last numbers drawn again at once)
     gShowFps = on;
 }
+
+unsigned foregroundCount() { return gForegrounds; }
 
 static bool gMetalPresented = false;
 bool presentedByMetal() { return gMetalPresented; }

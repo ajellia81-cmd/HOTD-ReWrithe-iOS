@@ -5,6 +5,9 @@
 
 #include "game/pause.h"
 #include "game/runtime.h"
+#if defined(HOTD_IOS)
+#include "util/ios_app.h"
+#endif
 
 #include <algorithm>
 #include <cmath>
@@ -171,6 +174,27 @@ void Pads::refresh()
     if (!started_)
         return;
     ++refreshes_;
+#if defined(HOTD_IOS)
+    // ios (the player 2026-11-19, from the Sega Rally 2 port): iOS stops a controller's haptics engines in the
+    // background and SDL never starts them again (the rumble silent from then on, or a stall where it is made again
+    // in play). Back in the foreground every pad is closed and opened again (the same id, the same player) and its
+    // rumble made at once (a rumble of 0: SDL makes the engines at the first one), while the picture just came back.
+    // The first open does the same: no engines made at the first hit
+    static unsigned fgSeen = hotd::ios::foregroundCount();
+    if (const unsigned fg = hotd::ios::foregroundCount(); fg != fgSeen) {
+        fgSeen = fg;
+        const Uint64 t0 = SDL_GetTicksNS();
+        for (Pad& d : pads_) {
+            SDL_CloseGamepad(d.g);
+            d.g = SDL_OpenGamepad(d.id);
+            if (d.g) SDL_RumbleGamepad(d.g, 0, 0, 1);
+        }
+        pads_.erase(std::remove_if(pads_.begin(), pads_.end(), [](const Pad& d) { return d.g == nullptr; }), pads_.end());
+        if (!pads_.empty())
+            SDL_Log("pads (iOS): %zu pad(s) opened again after the background, the haptics made again (%.1f ms)",
+                    pads_.size(), double(SDL_GetTicksNS() - t0) * 1e-6);
+    }
+#endif
     int n = 0;
     SDL_JoystickID* ids = SDL_GetGamepads(&n);
     bool changed = false;
@@ -201,6 +225,9 @@ void Pads::refresh()
             SDL_Log("pads: cannot open gamepad %u: %s", unsigned(ids[i]), SDL_GetError());
             continue;
         }
+#if defined(HOTD_IOS)
+        SDL_RumbleGamepad(g, 0, 0, 1);   // (ios: the haptics engines made now, not at the first rumble in play)
+#endif
         Pad d;
         d.id = ids[i];
         d.g = g;

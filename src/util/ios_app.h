@@ -51,6 +51,10 @@ void setInGame(bool inGame);
 // false: the system is ending the app
 bool beforePresent(SDL_Window* window);
 
+// the returns to the foreground so far (game/pads.cpp: the pads' haptics engines, stopped by iOS in the background,
+// made again then, not at the next rumble in play)
+unsigned foregroundCount();
+
 // the FPS counter shown or not (Options > Video > Show FPS; off by default)
 void setShowFps(bool on);
 
