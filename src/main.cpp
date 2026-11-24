@@ -16412,6 +16412,13 @@ int main(int argc, char* argv[])
                 const bool pointer = id == SDL_TOUCH_MOUSEID || id == SDL_PEN_MOUSEID;   // absolute positions
                 if (relMice && id == 0)
                     continue;   // relative mode: the desktop cursor's own events (warps), not a mouse
+#if defined(HOTD_IOS)
+                // (ios, the player 2026-11-24: chapter 4 began with the sight in the top-left corner) SDL's own
+                // motion (the global mouse, id 0: the focus coming back synthesises one at the mouse's last point,
+                // (0, 0) before any) is no finger: only the touch / pen move player 1's sight
+                if (id != SDL_TOUCH_MOUSEID && id != SDL_PEN_MOUSEID)
+                    continue;
+#endif
                 if (lightGuns.active() && !pointer)
                     continue;   // pads: light guns on: every mouse through raw input (the desktop cursor is everyone's)
                 const int p = playerOf(id);
