@@ -42,6 +42,13 @@ bool menuQuest = std::getenv("HOTD_QUEST_MENUS") && *std::getenv("HOTD_QUEST_MEN
 // questui (menu_pages.h menuQuest): the rows the standalone Quest leaves out (docs/quest.md "Settings on the Quest").
 // The Controls page has none of its PC rows there (no mouse, keyboard, pad or light gun: the Touch controllers), only
 // the VR rows (moved from Gameplay)
+// ios (the player 2026-11-24): the words for a phone where the PC's speak of keys, clicks, the PC or its folders
+#if defined(HOTD_IOS)
+#define PC_OR_IOS(pc, ios) (ios)
+#else
+#define PC_OR_IOS(pc, ios) (pc)
+#endif
+
 static void questRows(std::vector<Frontend::Extra>& r)
 {
 #if defined(HOTD_IOS)
@@ -733,7 +740,8 @@ std::vector<Frontend::Extra> menuCategoryRows(int category, LaunchConfig& c, con
         listed(r, {"Auto", "English", "Spanish (Spain)"});
         r.back().off = [h]() {
             return !(h.spanishVoices && h.spanishVoices())
-                       ? std::string("The Spanish voices need your Spanish PC copy (the setup's Extras page: Options > System > Repair / Change Files)")
+                       ? std::string(PC_OR_IOS("The Spanish voices need your Spanish PC copy (the setup's Extras page: Options > System > Repair / Change Files)",
+                                                    "The Spanish voices need your Spanish PC copy's files (put them in the Documents folder with the Files app)"))
                        : std::string();
         };
         // spanish: the reload voice off, as the Spanish release (a light-gun / accessibility choice), any language
@@ -812,14 +820,16 @@ std::vector<Frontend::Extra> menuCategoryRows(int category, LaunchConfig& c, con
         }
         // keybind (game/keybinds.h): every player's keyboard keys and gamepad buttons (uxpolish: right under the
         // inputs, before the per-player controller pages; its value says it opens a page, as every page row's does)
-        r.push_back({"Keys & Buttons", []() { return page("Rebind"); }, [h]() { if (h.bindPage) h.bindPage(); },
-                     "Change any player's keyboard keys and gamepad buttons (fire, reload, start, pause, aim)"});
+        r.push_back({PC_OR_IOS("Keys & Buttons", "Pad Buttons"), []() { return page("Rebind"); }, [h]() { if (h.bindPage) h.bindPage(); },
+                     PC_OR_IOS("Change any player's keyboard keys and gamepad buttons (fire, reload, start, pause, aim)",
+                               "Change any player's gamepad buttons (fire, reload, start, pause, aim)")});
         // padglyphs: whose buttons the prompts show (Auto: each pad its own model's, the keys after a key; else one
         // model's icons on any pad, or the keyboard's always)
         {
             r.push_back({"Button Icons", [&c]() { return std::string(kButtonIconNames[std::clamp(c.padPrompts, 0, 14)]); },
                          [&c, save]() { c.padPrompts = (c.padPrompts + 1) % 15; save(); },
-                         "The buttons the menus and hints show. Auto: your controller's own (the keys after you type)"});
+                         PC_OR_IOS("The buttons the menus and hints show. Auto: your controller's own (the keys after you type)",
+                                   "The buttons the menus and hints show. Auto: your controller's own")});
             indexed(r, std::vector<std::string>(kButtonIconNames, kButtonIconNames + 15), [&c]() { return std::clamp(c.padPrompts, 0, 14); },
                     [&c, save](int k) { c.padPrompts = k; save(); });
             r.back().clickBack = [&c, save]() { c.padPrompts = (c.padPrompts + 14) % 15; save(); };
@@ -1142,7 +1152,8 @@ std::vector<Frontend::Extra> menuCategoryRows(int category, LaunchConfig& c, con
         // by default"; pmpick, user 2026-10-30: On by default now): the PC's start-up window (THOTD.EXE 0x419FDC: SEGA
         // logo, then the title art) before the menu
         r.push_back({"PC Start-up Screens", [&c]() { return onOff(c.pcSplash); }, [&c, save]() { c.pcSplash = !c.pcSplash; save(); },
-                     "The 1998 PC's SEGA screen and zombie title art when the game starts (a key or click skips them)"});
+                     PC_OR_IOS("The 1998 PC's SEGA screen and zombie title art when the game starts (a key or click skips them)",
+                               "The 1998 PC's SEGA screen and zombie title art when the game starts (a tap or a pad button skips them)")});
         // totdex (user 2026-11-09, after Tenome's Typing of the Dead EX): The Typing of the Dead 0's own page (its
         // live WPM line, the typing statistics)
         if (h.totdPage)
@@ -1156,8 +1167,9 @@ std::vector<Frontend::Extra> menuCategoryRows(int category, LaunchConfig& c, con
         if (h.modsRows)
             r = h.modsRows();
         else
-            r.push_back({"No mods found", []() { return std::string("data\\mods"); }, nullptr,
-                         "Mods go in the data\\mods folder; how to make one: docs/modding.md"});
+            r.push_back({"No mods found", []() { return std::string(PC_OR_IOS("data\\mods", "settings/mods")); }, nullptr,
+                         PC_OR_IOS("Mods go in the data\\mods folder; how to make one: docs/modding.md",
+                                   "Mods go in the Documents > settings > mods folder (the Files app); how to make one: docs/modding.md")});
         break;
     case kCatSystem:
         // setup2 (v1.1.0): the setup's Game files page (choose / import the arcade ROMs and the PC game again)
@@ -1178,7 +1190,8 @@ std::vector<Frontend::Extra> menuCategoryRows(int category, LaunchConfig& c, con
         // improvement"): its own page (menuLanguageRows): each language in its own script, a line of it to preview
         r.push_back({"Language", []() { return page(lang::displayName(lang::code()).c_str()); },
                      [h]() { if (h.languagePage) h.languagePage(); },
-                     "The menus' language: each one in its own script with a line of it (files in data\\lang). F5 reloads it"});
+                     PC_OR_IOS("The menus' language: each one in its own script with a line of it (files in data\\lang). F5 reloads it",
+                               "The menus' language: each one in its own script with a line of it")});
         break;
     default:
         break;
@@ -1266,7 +1279,7 @@ std::vector<X> menuModRows(LaunchConfig& c, const std::vector<ModPack>& mods, st
         }
         if (!mp.settings.empty())
             r.push_back({"  Settings", []() { return page("Open"); }, [openSettings, id]() { if (openSettings) openSettings(id); },
-                         "This mod's own settings (saved on this PC)"});
+                         PC_OR_IOS("This mod's own settings (saved on this PC)", "This mod's own settings (saved on this device)")});
         if (i > 0 && mp.type == "textures" && packs > 1)   // (the load order matters for the texture packs only)
             r.push_back({"  Move Up", [&c, &mods, id, at]() {
                              const auto l = modOrder(c, mods);
@@ -1283,8 +1296,9 @@ std::vector<X> menuModRows(LaunchConfig& c, const std::vector<ModPack>& mods, st
                          "Move this mod up the load order: the first texture pack's pictures win"});
     }
     if (order.size() <= 1)
-        r.push_back({"More Mods", []() { return std::string("data\\mods"); }, nullptr,
-                     "Mods go in the data\\mods folder; how to make one: docs/modding.md"});
+        r.push_back({"More Mods", []() { return std::string(PC_OR_IOS("data\\mods", "settings/mods")); }, nullptr,
+                     PC_OR_IOS("Mods go in the data\\mods folder; how to make one: docs/modding.md",
+                               "Mods go in the Documents > settings > mods folder (the Files app); how to make one: docs/modding.md")});
     return r;
 }
 
@@ -1690,7 +1704,7 @@ std::vector<Frontend::Extra> menuBindRows(int p, LaunchConfig& c, BindCapture& c
                    },
                    "Whose keys and buttons these are (click: the next player)"};
     const X status{"Status", [&cap]() {
-                       std::string m = cap.message.empty() ? std::string("Click a row") : cap.message;
+                       std::string m = cap.message.empty() ? std::string(PC_OR_IOS("Click a row", "Tap a row")) : cap.message;
                        if (cap.active())
                            m += " " + std::to_string(cap.secondsLeft(SDL_GetTicks())) + "s";
                        return m.size() > 22 ? util::utf8Head(m, 21) + "." : m;
@@ -1750,7 +1764,7 @@ std::vector<Frontend::Extra> menuBindRows(int p, LaunchConfig& c, BindCapture& c
                          return ((b.mask[a] & others) ? "! " : "") + padList(b.mask[a], padType(p));
                      },
                      [&cap, p, a]() { cap.start(p, a, true, SDL_GetTicks()); },
-                     std::string("The buttons that ") + kHelp[a] + ": click, then press one on the pad (Esc: cancel)"});
+                     std::string("The buttons that ") + kHelp[a] + PC_OR_IOS(": click, then press one on the pad (Esc: cancel)", ": tap, then press one on the pad (5 s: cancelled)")});
     }
     r.push_back({"Reset Pad", [&c, p]() { return std::string(c.padBinds[p].custom ? "Reset" : "Auto"); },
                  [&c, &cap, save, padsChanged, p]() {

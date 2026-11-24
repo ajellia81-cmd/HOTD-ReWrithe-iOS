@@ -503,7 +503,7 @@ std::vector<std::string> startArgs(int argc, char** argv)
     std::error_code ec;
     // settings, scores, the log: Documents/settings (the Files app shows them: a bug report's hotd.log)
     if (!std::getenv("HOTD_PREF_DIR")) {
-        fs::create_directories(fs::path(docs) / "settings", ec);
+        fs::create_directories(fs::path(docs) / "settings" / "mods", ec);   // (the player's mods: Options > Mods names it)
         SDL_setenv_unsafe("HOTD_PREF_DIR", (docs + "/settings/").c_str(), 1);
     }
     // the folders the player fills, made now so the Files app shows them

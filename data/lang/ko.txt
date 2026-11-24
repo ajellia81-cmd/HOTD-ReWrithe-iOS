@@ -1792,3 +1792,22 @@ Comfort Vignette (VR) = 편안함 비네트 (VR)
 Darkens the edges of the view while the camera turns fast, for less motion sickness. VR only = 카메라가 빠르게 회전하는 동안 시야 가장자리를 어둡게 하여 멀미를 줄입니다. VR 전용
 Hands in Menus (VR) = 메뉴에서 손 (VR)
 Your hands and gun in front of the menus' big screen. VR only = 메뉴의 큰 화면 앞에 손과 총을 표시합니다. VR 전용
+
+# ios (2026-11-24): the phone's words
+Pad Buttons = 패드 버튼
+Tap a row = 행을 탭
+Change any player's gamepad buttons (fire, reload, start, pause, aim) = 모든 플레이어의 게임패드 버튼 변경 (사격, 장전, 시작, 일시 정지, 조준)
+The Spanish voices need your Spanish PC copy's files (put them in the Documents folder with the Files app) = 스페인어 음성에는 스페인어판 PC 사본의 파일이 필요합니다 (파일 앱으로 Documents 폴더에 넣기)
+settings/mods = settings/mods
+Mods go in the Documents > settings > mods folder (the Files app); how to make one: docs/modding.md = 모드는 파일 앱의 Documents > settings > mods 폴더에 넣습니다; 만드는 방법: docs/modding.md
+This mod's own settings (saved on this device) = 이 모드의 설정 (이 기기에 저장)
+The menus' language: each one in its own script with a line of it = 메뉴 언어: 각 언어는 고유 문자와 한 줄 예시로 표시
+The 1998 PC's SEGA screen and zombie title art when the game starts (a tap or a pad button skips them) = 게임 시작 시 1998 PC판의 SEGA 화면과 좀비 타이틀 그림 (탭이나 패드 버튼으로 건너뜀)
+The buttons the menus and hints show. Auto: your controller's own = 메뉴와 안내에 표시되는 버튼. 자동: 사용 중인 컨트롤러의 버튼
+The buttons that shoot: tap, then press one on the pad (5 s: cancelled) = 사격 버튼: 탭 후 패드 버튼 입력 (5초: 취소)
+The buttons that reload: tap, then press one on the pad (5 s: cancelled) = 장전 버튼: 탭 후 패드 버튼 입력 (5초: 취소)
+The buttons that start / join / continue (in play: the pause): tap, then press one on the pad (5 s: cancelled) = 시작 / 참가 / 컨티뉴 버튼 (플레이 중: 일시 정지): 탭 후 패드 버튼 입력 (5초: 취소)
+The buttons that pause: tap, then press one on the pad (5 s: cancelled) = 일시 정지 버튼: 탭 후 패드 버튼 입력 (5초: 취소)
+The buttons that put the crosshair in the middle: tap, then press one on the pad (5 s: cancelled) = 조준점을 가운데로 놓는 버튼: 탭 후 패드 버튼 입력 (5초: 취소)
+The buttons that hold the gyro (the ratchet; a tap: the middle): tap, then press one on the pad (5 s: cancelled) = 자이로를 고정하는 버튼 (래칫; 짧게: 가운데): 탭 후 패드 버튼 입력 (5초: 취소)
+The buttons that slow the aim while held (precise): tap, then press one on the pad (5 s: cancelled) = 누르는 동안 조준을 늦추는 버튼 (정밀): 탭 후 패드 버튼 입력 (5초: 취소)

@@ -12575,6 +12575,11 @@ int main(int argc, char* argv[])
             // keybind (game/keybinds.h): the Keys & Buttons page, one player at a time (game/menu_pages.h menuBindRows: page
             // 1 the keyboard's actions, page 2 the gamepad's); a row clicked waits for a key / button (Esc, a click or
             // 5 s: cancelled); a key or button used twice is marked "!" and named on Status. Saved at once (launcher.ini)
+            #if defined(HOTD_IOS)
+            static const std::string kBindTitle = "Pad Buttons";   // (ios: no keyboard page)
+#else
+            static const std::string kBindTitle = "Keys & Buttons";
+#endif
             static std::function<void(int)> bindPage;
             static int bindSaved = 0;   // gBind.changes saved so far
             static game::MenuHooks bindHooks;
@@ -12586,7 +12591,7 @@ int main(int argc, char* argv[])
             bindPage = [&](int p) {
                 pads.configure(menu.cfg);
                 fe.extras = game::menuBindRows(p, menu.cfg, gBind, bindHooks);
-                fe.extrasTitle = "Keys & Buttons";
+                fe.extrasTitle = kBindTitle;
                 fe.extrasTab = -1;
                 fe.extrasExit = [&]() {
                     gBind.cancel("");
@@ -12606,7 +12611,7 @@ int main(int argc, char* argv[])
                     saveCfg();
                     pads.configure(menu.cfg);
                 }
-                if (fe.screen() == 100 && fe.extrasTitle == "Keys & Buttons")
+                if (fe.screen() == 100 && fe.extrasTitle == kBindTitle)
                     fe.screenExtras();   // (also a time-out found here)
                 return ate;
             };
@@ -12616,7 +12621,7 @@ int main(int argc, char* argv[])
                 if (!gBind.active())
                     return;
                 const Uint64 t = SDL_GetTicks();
-                if (fe.screen() != 100 || fe.extrasTitle != "Keys & Buttons") {
+                if (fe.screen() != 100 || fe.extrasTitle != kBindTitle) {
                     gBind.cancel("");
                     return;
                 }
