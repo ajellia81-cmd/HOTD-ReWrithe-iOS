@@ -57,7 +57,9 @@ static void questRows(std::vector<Frontend::Extra>& r)
         "Edge Reload", "Typing of the Dead 0", "Trailer Mode", "Online Co-op",
         "Light Guns", "Light Gun Type", "Shot Flash", "Gun Border", "Calibrate Light Guns",
         "Player 1 Input", "Player 2 Input",
-        "Repair / Change Files", "Check for Updates", "Desktop Shortcut", "Add to Steam"};
+        "Repair / Change Files", "Check for Updates", "Desktop Shortcut", "Add to Steam",
+        // (the player 2026-11-24: online only, no CHANGELOG in the app, a developer's switch)
+        "Teammate Crosshair Flashes", "What's New", "Guards (Teaser Cuts)"};
     static const char* const kIosHiddenStart[] = {"Light Gun: Player ", "Mouse Sensitivity: Player ", "Player 3 Input", "Player 4 Input"};
     r.erase(std::remove_if(r.begin(), r.end(), [](const Frontend::Extra& e) {
                 return std::find_if(std::begin(kIosHidden), std::end(kIosHidden), [&e](const char* s) { return e.name == s; }) != std::end(kIosHidden) ||
@@ -1492,7 +1494,9 @@ std::vector<Frontend::Extra> menuRangeRows(LaunchConfig& c, const MenuHooks& h, 
         if (k >= 0) s.thick = k;
         return art(s, seatArt, wh, out);
     };
+#if !defined(HOTD_IOS)   // (ios: online only)
     teamFlashRow(r, c, save);   // (the range: the mouse's player is "you", the others show it)
+#endif
     r.push_back({"Copy to Every Player", nullptr, [&c, sp, save]() {
                      for (int k = 0; k < 4; ++k) c.sights[k] = c.sights[std::clamp(*sp, 0, 3)];
                      save();
@@ -1684,7 +1688,8 @@ std::vector<Frontend::Extra> menuBindRows(int p, LaunchConfig& c, BindCapture& c
                        return m.size() > 22 ? util::utf8Head(m, 21) + "." : m;
                    }, nullptr,
                    "A key / button the row has is taken off, a new one added; ! = used twice"};
-    // page 1: the keyboard (12 rows)
+    // page 1: the keyboard (12 rows; ios: none, the player 2026-11-24: a phone has no keyboard)
+#if !defined(HOTD_IOS)
     r.push_back(player);
     r.push_back(status);
     for (int a = 0; a < kKeyActions; ++a)
@@ -1719,6 +1724,7 @@ std::vector<Frontend::Extra> menuBindRows(int p, LaunchConfig& c, BindCapture& c
                      padsChanged();
                  },
                  "Every player's keys and pad buttons back to the defaults"});
+#endif
     // page 2: the gamepad
     r.push_back(player);
     r.push_back(status);
