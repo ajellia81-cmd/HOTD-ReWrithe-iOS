@@ -173,6 +173,7 @@ Stretch = 늘이기
 Original 4:3 = 원본 4:3
 Aspect 4:3 shows the whole game in 4:3 = 화면비 4:3은 게임 전체를 4:3으로 보여 줍니다
 16:9 = 16:9
+Fullscreen fills the whole screen; 4:3 is the original picture with side bars = 전체 화면은 화면을 꽉 채움; 4:3은 원래 화면에 옆 띠
 Menu Style = 메뉴 스타일
 Classic PC: the 1998 PC menu (4:3). Remake: a modern menu as wide as the window = 클래식 PC: 1998년 PC판 메뉴 (4:3). 리메이크: 창 너비에 맞는 현대식 메뉴
 Remake = 리메이크

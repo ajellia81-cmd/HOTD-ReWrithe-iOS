@@ -450,10 +450,18 @@ std::vector<Frontend::Extra> menuCategoryRows(int category, LaunchConfig& c, con
         listed(r, {"Arcade", "PC"});
         previewed(r, h, "models");   // (fix28: the same frame with each)
         // aspect1610: 16:9 (shown as "16:9" since prerel; was "Widescreen"; fills any window) -> 16:10 (fills a 16:10 screen, thin bars on a wider one) -> 4:3
+#if defined(HOTD_IOS)
+        // (ios, the player 2026-11-24: 16:10 is the Steam Deck's; "16:9" fills the whole screen, so it says so)
+        r.push_back({"Aspect", [&c]() { return std::string(c.aspect == 1 ? "4:3" : "Fullscreen"); },
+                     [&c, save]() { c.aspect = c.aspect == 1 ? 0 : 1; save(); },
+                     "Fullscreen fills the whole screen; 4:3 is the original picture with side bars"});
+        listed(r, {"Fullscreen", "4:3"});
+#else
         r.push_back({"Aspect", [&c]() { return std::string(c.aspect == 1 ? "4:3" : c.aspect == 2 ? "16:10" : "16:9"); },
                      [&c, save]() { c.aspect = c.aspect == 0 ? 2 : c.aspect == 2 ? 1 : 0; save(); },
                      "16:9 fills the window; 16:10 for 16:10 screens (Steam Deck), thin side bars on wider ones; 4:3 is the original picture with side bars"});
         listed(r, {"16:9", "16:10", "4:3"});
+#endif
         // wide2d (user 2026-11-03): the 2D screens made for 4:3 only (the chapter cards, GAME OVER, the route map, the
         // chapter clear's wall) widened from their own pixels (backgrounds extended or stretched, words kept in shape),
         // up to 16:9 (wider windows: side bars past 16:9), or as the original 4:3 with side bars

@@ -358,7 +358,11 @@ bool LaunchConfig::load(const std::string& file)
             else continue;
             sightSeen[s] = true;
         }
+#if defined(HOTD_IOS)
+        else if (k == "aspect") aspect = n == 1 ? 1 : 0;   // (ios: no 16:10; it fills the screen instead)
+#else
         else if (k == "aspect") aspect = std::clamp(n, 0, 2);
+#endif
         else if (k == "widen2d") widen2d = std::clamp(n, 0, 1);
         else if (k == "fullscreen") fullscreen = n != 0;
         else if (k == "displaymode") displayModeSeen = std::clamp(n, 0, 2);

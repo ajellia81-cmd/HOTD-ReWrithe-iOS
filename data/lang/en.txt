@@ -168,6 +168,7 @@ The 3D models and world: the arcade's (Model 2) or the PC release's = The 3D mod
 PC = PC
 Aspect = Aspect
 16:9 fills the window; 16:10 for 16:10 screens (Steam Deck), thin side bars on wider ones; 4:3 is the original picture with side bars = 16:9 fills the window; 16:10 for 16:10 screens (Steam Deck), thin side bars on wider ones; 4:3 is the original picture with side bars
+Fullscreen fills the whole screen; 4:3 is the original picture with side bars = Fullscreen fills the whole screen; 4:3 is the original picture with side bars
 Widen 2D Screens = Widen 2D Screens
 The chapter title cards, GAME OVER and other 4:3 pictures: Stretch fills a wide window (up to 16:9; the words keep their shape); Original 4:3 keeps the side bars = The chapter title cards, GAME OVER and other 4:3 pictures: Stretch fills a wide window (up to 16:9; the words keep their shape); Original 4:3 keeps the side bars
 Stretch = Stretch
