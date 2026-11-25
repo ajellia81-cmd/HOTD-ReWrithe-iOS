@@ -1707,7 +1707,15 @@ std::vector<Frontend::Extra> menuBindRows(int p, LaunchConfig& c, BindCapture& c
                        std::string m = cap.message.empty() ? std::string(PC_OR_IOS("Click a row", "Tap a row")) : cap.message;
                        if (cap.active())
                            m += " " + std::to_string(cap.secondsLeft(SDL_GetTicks())) + "s";
+#if defined(HOTD_IOS)
+                       // (ios: the letters, not the bytes: a Korean line is 3 bytes a letter)
+                       size_t n = 0, cut = 0;
+                       for (size_t i = 0; i < m.size(); ++i)
+                           if (!util::utf8Cont(m[i]) && ++n == 22) cut = i;   // the 22nd letter's start
+                       return n > 22 ? m.substr(0, cut) + "." : m;
+#else
                        return m.size() > 22 ? util::utf8Head(m, 21) + "." : m;
+#endif
                    }, nullptr,
                    "A key / button the row has is taken off, a new one added; ! = used twice"};
     // page 1: the keyboard (12 rows; ios: none, the player 2026-11-24: a phone has no keyboard)
@@ -1756,7 +1764,7 @@ std::vector<Frontend::Extra> menuBindRows(int p, LaunchConfig& c, BindCapture& c
             "hold the gyro (the ratchet; a tap: the middle)", "slow the aim while held (precise)"};
         r.push_back({std::string("Pad: ") + padActionName(a), [&cap, padNow, padType, p, a]() {
                          if (cap.active() && cap.pad() && cap.player() == p && cap.action() == a)
-                             return std::string("Press a button");
+                             return std::string(PC_OR_IOS("Press a button", lang::tr("Press a button")));
                          const PadBinds b = padNow(p);
                          uint32_t others = 0;
                          for (int o = 0; o < kPadActions; ++o)
@@ -1769,7 +1777,7 @@ std::vector<Frontend::Extra> menuBindRows(int p, LaunchConfig& c, BindCapture& c
     r.push_back({"Reset Pad", [&c, p]() { return std::string(c.padBinds[p].custom ? "Reset" : "Auto"); },
                  [&c, &cap, save, padsChanged, p]() {
                      c.padBinds[p] = PadBinds{};
-                     cap.message = "P" + std::to_string(p + 1) + " pad: Auto";
+                     cap.message = PC_OR_IOS("P" + std::to_string(p + 1) + " pad: Auto", lang::tr("Pad: Auto"));
                      save();
                      padsChanged();
                  },

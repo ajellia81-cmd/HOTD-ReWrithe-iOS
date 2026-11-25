@@ -2,6 +2,9 @@
 #include "game/keybinds.h"
 #include "game/pad_prompts.h"
 #include "util/utf8.h"
+#if defined(HOTD_IOS)
+#include "game/lang.h"
+#endif
 
 #include <algorithm>
 #include <cstdlib>
@@ -341,12 +344,20 @@ void BindCapture::start(int player, int action, bool pad, uint64_t nowMs)
     pad_ = pad;
     until_ = nowMs + kTimeoutMs;
     message = pad ? "Press a pad button (Esc: cancel)" : "Press a key (Esc: cancel)";
+#if defined(HOTD_IOS)
+    // (ios, the player 2026-11-25: the Status row cut the long English line short; a phone has no Esc)
+    message = lang::tr("Press a pad button");
+#endif
 }
 
 void BindCapture::cancel(const char* why)
 {
     if (player_ >= 0)
+#if defined(HOTD_IOS)
+        message = lang::tr(std::strncmp(why, "Timed out", 9) == 0 ? "Timed out" : why);
+#else
         message = why;
+#endif
     player_ = -1;
 }
 
@@ -382,6 +393,9 @@ bool BindCapture::event(const SDL_Event& e, KeyBinds keys[kBindPlayers], PadBind
         if (m & bit) {
             m &= ~bit;
             message = n + " taken off " + who + "Pad " + padActionName(action_);
+#if defined(HOTD_IOS)
+            message = lang::fmt("{b}: off {a}", {{"b", n}, {"a", lang::tr(padActionName(action_))}});
+#endif
         } else {
             m |= bit;
             std::string also;
@@ -389,6 +403,15 @@ bool BindCapture::event(const SDL_Event& e, KeyBinds keys[kBindPlayers], PadBind
                 if (a != action_ && (pad.mask[a] & bit)) also = join(also, padActionName(a));
             message = also.empty() ? n + " is now " + who + "Pad " + padActionName(action_)
                                    : n + ": also " + also + "!";
+#if defined(HOTD_IOS)
+            {
+                std::string alsoTr;   // the other actions, each in the language
+                for (int a = 0; a < kPadActions; ++a)
+                    if (a != action_ && (pad.mask[a] & bit)) alsoTr = join(alsoTr, lang::tr(padActionName(a)));
+                message = alsoTr.empty() ? lang::fmt("{b}: on {a}", {{"b", n}, {"a", lang::tr(padActionName(action_))}})
+                                         : lang::fmt("{b}: also {a}!", {{"b", n}, {"a", alsoTr}});
+            }
+#endif
         }
         ++changes;
         player_ = -1;
@@ -442,6 +465,9 @@ bool BindCapture::event(const SDL_Event& e, KeyBinds keys[kBindPlayers], PadBind
         if (in < 0) {
             message = b == SDL_GAMEPAD_BUTTON_TOUCHPAD ? "The touchpad click: its own setting (Controller page)"
                                                       : "That button cannot be bound";
+#if defined(HOTD_IOS)
+            message = lang::tr(b == SDL_GAMEPAD_BUTTON_TOUCHPAD ? "Touchpad: Controller page" : "Cannot be bound");
+#endif
             player_ = -1;
             return true;
         }
